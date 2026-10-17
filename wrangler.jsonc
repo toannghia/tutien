@@ -4,6 +4,9 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
+  // Tên miền riêng (khai báo ở đây để mỗi lần deploy không bị gỡ)
+  "workers_dev": true,
+  "routes": [{ "pattern": "tutien.tamnguyen.com", "custom_domain": true }],
   "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": ["/api/*"] },
   "d1_databases": [
     {
@@ -24,7 +27,8 @@
   // Dọn tài khoản khách bỏ hoang mỗi ngày lúc 3h sáng (UTC)
   "triggers": { "crons": ["0 3 * * *"] },
   "vars": {
-    "BETTER_AUTH_URL": "https://tutien.nghia-code.workers.dev", // local ghi đè trong .dev.vars
+    "BETTER_AUTH_URL": "https://tutien.tamnguyen.com", // tên miền chính; local ghi đè trong .dev.vars
+    "TRUSTED_ORIGINS": "https://tutien.tamnguyen.com,https://tutien.nghia-code.workers.dev",
     // "1" = hiện nhãn "Tàn ảnh" cho đối thủ là bot; "0" = bot trông như người thật
     "DUEL_BOT_LABEL": "0"
   }

@@ -7,6 +7,7 @@ export type Env = {
   ASSETS: Fetcher;
   BETTER_AUTH_SECRET: string;
   BETTER_AUTH_URL: string;
+  TRUSTED_ORIGINS?: string; // các tên miền khác cũng phục vụ game, cách nhau bởi dấu phẩy
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
   MATCHMAKER: DurableObjectNamespace;
@@ -22,6 +23,8 @@ export function createAuth(env: Env) {
     database: env.DB,
     secret: env.BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
+    // Game chạy được trên nhiều tên miền (tên miền riêng + workers.dev): tin cậy tất cả
+    trustedOrigins: (env.TRUSTED_ORIGINS ?? "").split(",").map((o) => o.trim()).filter(Boolean),
     basePath: "/api/auth",
     emailAndPassword: { enabled: true, minPasswordLength: 8 },
     socialProviders:
