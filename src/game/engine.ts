@@ -101,11 +101,25 @@ export type Fact = {
   kind: FactKind;
   choice?: string;
   delta?: Partial<Record<"cultivation" | "health" | "resources" | "luck" | "comprehension" | "lifespan", number>>;
+  // Chỉ số ngay sau mốc này — để bảng nhân vật hiện đúng trong lúc kể lại
+  stat?: FactStat;
   // Chi tiết một lần đột phá, để giao diện dựng hiệu ứng kết quả
   breakthrough?: BreakInfo;
   // Kết quả một câu khảo hạch (chỉ có SAU khi đã trả lời)
   quiz?: { question: string; picked: string | null; answer: string; ok: boolean; explain: string };
 };
+export type FactStat = {
+  h: number; // thể trạng
+  l: number; // thọ nguyên
+  p: number; // % tu vi trong đại cảnh giới
+  r: number; // linh tài
+  lk: number; // khí vận
+  c: number; // ngộ tính
+  sc: SectStatus;
+  pt: PartnerStatus;
+  pa: string | null; // đạo đồ
+};
+
 export type BreakFactor = { label: string; value: number }; // value: điểm phần trăm (+/−)
 export type BreakInfo = {
   result: "success" | "fail" | "death" | "ascend";
@@ -222,8 +236,26 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
   const pathDef = () => PATHS.find((p) => p.id === s.path);
 
   const label = () => realmLabel(s.realm, s.stage);
-  const log = (title: string, text: string, kind: FactKind, extra: Partial<Fact> = {}) =>
+  // Đóng dấu chỉ số cho mốc vừa rồi (hiệu ứng của nó đã áp xong) trước khi ghi mốc mới
+  const stampLast = () => {
+    const last = s.facts[s.facts.length - 1];
+    if (!last) return;
+    last.stat = {
+      h: Math.round(s.health),
+      l: s.lifespan,
+      p: s.realm === 0 ? 0 : Math.min(100, Math.round((s.progress / REALM_COST) * 100)),
+      r: s.resources,
+      lk: s.luck,
+      c: s.comprehension,
+      sc: s.sect,
+      pt: s.partner,
+      pa: s.path,
+    };
+  };
+  const log = (title: string, text: string, kind: FactKind, extra: Partial<Fact> = {}) => {
+    stampLast();
     s.facts.push({ age: s.age, realm: label(), title, text, kind, ...extra });
+  };
   const finish = (reason: string, text: string) => {
     s.endingReason = reason;
     log("Kết cục", text, "ending");
@@ -283,6 +315,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
   };
 
   const snapshot = (pending: PendingChoice | null): RunState => {
+    stampLast();
     const flags = [...s.flags];
     const finished = !pending;
     return {

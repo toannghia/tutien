@@ -364,15 +364,23 @@ function updateSheet() {
   const realm = done ? run.realm : realmIndexOf(last.realm);
   const label = done ? run.realmLabel : last.realm;
   const age = done ? run.age : last.age;
-  sheetHtml(sheet, run, { realm, label, age, live: done });
+  // Đang kể lại: dùng chỉ số đóng dấu ở mốc vừa hiện, để không "lộ trước" kết quả phía sau
+  const stat = done || !last.stat ? statOf(run) : statFromFact(last.stat);
+  sheetHtml(sheet, run, { realm, label, age, stat, shown: done ? run.facts.length : app.shown });
   stripHtml(document.getElementById("strip"), run, realm);
 }
 
-function sheetHtml(el, run, { realm, label, age, live }) {
+const statOf = (run) => ({ health: run.health, lifespan: run.lifespan, progress: run.progress, resources: run.resources, luck: run.luck, comprehension: run.comprehension, sect: run.sect, partner: run.partner, path: run.path });
+const statFromFact = (t) => ({ health: t.h, lifespan: t.l, progress: t.p, resources: t.r, luck: t.lk, comprehension: t.c, sect: t.sc, partner: t.pt, path: t.pa });
+
+function sheetHtml(el, run, { realm, label, age, stat, shown = run.facts.length }) {
   const p = run.profile;
   const c = app.codex;
-  const sect = { none: "Tán tu", member: "Đệ tử tông môn", elder: "Trưởng lão", outcast: "Bị trục xuất" }[run.sect];
-  const partner = { none: "Độc hành", partner: "Có đạo lữ", widowed: "Đạo lữ đã khuất" }[run.partner];
+  const st = stat ?? statOf(run);
+  const sect = { none: "Tán tu", member: "Đệ tử tông môn", elder: "Trưởng lão", outcast: "Bị trục xuất" }[st.sect];
+  const partner = { none: "Độc hành", partner: "Có đạo lữ", widowed: "Đạo lữ đã khuất" }[st.partner];
+  const quizzes = run.facts.slice(0, shown).filter((f) => f.quiz);
+  const quizOk = quizzes.filter((f) => f.quiz.ok).length;
   const meter = (k, v, max, cls = "") =>
     `<div class="meter"><div class="row"><span class="muted">${k}</span><span>${fmt(v)}${max ? ` / ${fmt(max)}` : ""}</span></div>${max ? `<div class="bar ${cls}"><i style="width:${Math.min(100, (v / max) * 100)}%"></i></div>` : ""}</div>`;
   const open = el.classList.contains("open");
@@ -383,30 +391,29 @@ function sheetHtml(el, run, { realm, label, age, live }) {
       <button class="sheet-toggle" aria-expanded="${open}" aria-label="Chi tiết nhân vật">${open ? "Thu gọn ▴" : "Chi tiết ▾"}</button>
     </div>
     <div class="group vitals">
-      ${live ? meter("Thể trạng", run.health, 100, `health ${run.health < 40 ? "low" : ""}`) : ""}
-      ${meter("Tuổi", age, live ? run.lifespan : 0, "life")}
-      ${live && realm > 0 ? meter("Tu vi cảnh giới", run.progress, 100) : ""}
-      ${live ? "" : `<div class="muted small">Đang kể lại một đoạn đời…</div>`}
+      ${meter("Thể trạng", st.health, 100, `health ${st.health < 40 ? "low" : ""}`)}
+      ${meter("Tuổi", age, st.lifespan, "life")}
+      ${realm > 0 ? meter("Tu vi cảnh giới", st.progress, 100) : ""}
     </div>
     <div class="group detail">
       <div class="kv"><span class="k">Giới tính</span><span class="v">${p.gender === "male" ? "Nam" : "Nữ"}</span></div>
       <div class="kv"><span class="k">Xuất thân</span><span class="v">${esc(byId(c.origins, p.origin).name)}</span></div>
       <div class="kv"><span class="k">Linh căn</span><span class="v">${esc(p.root)}</span></div>
       <div class="kv"><span class="k">Thể chất</span><span class="v">${esc(byId(c.physiques, p.physique).name)}</span></div>
-      <div class="kv"><span class="k">Đạo đồ</span><span class="v">${esc(byId(c.paths, run.path)?.name ?? (realm > 0 ? "…" : "—"))}</span></div>
-      ${run.quiz?.total ? `<div class="kv"><span class="k">Khảo hạch</span><span class="v">${run.quiz.correct}/${run.quiz.total} đúng</span></div>` : ""}
-      <div class="kv"><span class="k">Tông môn</span><span class="v">${live ? sect : "…"}</span></div>
-      <div class="kv"><span class="k">Đạo lữ</span><span class="v">${live ? partner : "…"}</span></div>
+      <div class="kv"><span class="k">Đạo đồ</span><span class="v">${esc(byId(c.paths, st.path)?.name ?? "—")}</span></div>
+      ${quizzes.length ? `<div class="kv"><span class="k">Khảo hạch</span><span class="v">${quizOk}/${quizzes.length} đúng</span></div>` : ""}
+      <div class="kv"><span class="k">Tông môn</span><span class="v">${sect}</span></div>
+      <div class="kv"><span class="k">Đạo lữ</span><span class="v">${partner}</span></div>
     </div>
     <div class="group detail">
       ${meter("Tư chất", p.aptitude, 100)}
-      ${meter("Ngộ tính", live ? run.comprehension : p.comprehension, 100)}
-      ${meter("Khí vận", live ? run.luck : p.luck, 100)}
-      ${live ? meter("Linh tài", run.resources) : ""}
+      ${meter("Ngộ tính", st.comprehension, 100)}
+      ${meter("Khí vận", st.luck, 100)}
+      ${meter("Linh tài", st.resources)}
     </div>`;
   el.querySelector(".sheet-toggle").onclick = () => {
     el.classList.toggle("open");
-    sheetHtml(el, run, { realm, label, age, live });
+    sheetHtml(el, run, { realm, label, age, stat, shown });
   };
 }
 
@@ -1017,7 +1024,7 @@ async function renderHistoryDetail(id) {
   app.run = run;
   app.shown = run.facts.length;
   run.facts.forEach((f) => appendFact(f, false));
-  sheetHtml(document.getElementById("sheet"), run, { realm: run.realm, label: run.realmLabel, age: run.age, live: true });
+  sheetHtml(document.getElementById("sheet"), run, { realm: run.realm, label: run.realmLabel, age: run.age });
   stripHtml(document.getElementById("strip"), run, run.realm);
   const end = run.status === "abandoned" ? run.storedEnding || "Luân hồi sớm" : run.endingReason || run.storedEnding;
   document.getElementById("timeline").insertAdjacentHTML(

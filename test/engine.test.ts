@@ -181,3 +181,17 @@ describe("đột phá", () => {
     expect(wins).toBeGreaterThan(0);
   });
 });
+
+describe("chỉ số theo mốc", () => {
+  it("mọi mốc đều có chỉ số; mốc cuối khớp trạng thái cuối", () => {
+    for (let seed = 1; seed <= 60; seed++) {
+      const { state } = playOut(seed);
+      expect(state.facts.every((f) => f.stat)).toBe(true);
+      const last = state.facts.at(-1)!.stat!;
+      expect(last.h).toBe(state.health);
+      expect(last.l).toBe(state.lifespan);
+      expect(last.r).toBe(state.resources);
+      expect(last.sc).toBe(state.sect);
+    }
+  });
+});
