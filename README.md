@@ -75,7 +75,18 @@ npm run dev                      # http://localhost:8787
 npm test
 ```
 
-## Deploy
+## Bản đang chạy
+
+https://tutien.nghia-code.workers.dev (Cloudflare Workers, D1 `tutien-db` ở APAC)
+
+Deploy lại sau khi sửa code:
+
+```bash
+npm run db:migrate:remote   # chỉ khi có migration mới
+npm run deploy
+```
+
+## Deploy lần đầu (tài khoản Cloudflare mới)
 
 ```bash
 npx wrangler d1 create tutien-db          # chép database_id vào wrangler.jsonc

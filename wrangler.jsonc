@@ -9,8 +9,7 @@
     {
       "binding": "DB",
       "database_name": "tutien-db",
-      // Thay bằng id thật sau khi chạy: npx wrangler d1 create tutien-db
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "03981595-7a9e-493c-ac75-852da410f4c8",
       "migrations_dir": "migrations"
     }
   ],
@@ -25,7 +24,7 @@
   // Dọn tài khoản khách bỏ hoang mỗi ngày lúc 3h sáng (UTC)
   "triggers": { "crons": ["0 3 * * *"] },
   "vars": {
-    "BETTER_AUTH_URL": "http://localhost:8787",
+    "BETTER_AUTH_URL": "https://tutien.nghia-code.workers.dev", // local ghi đè trong .dev.vars
     // "1" = hiện nhãn "Tàn ảnh" cho đối thủ là bot; "0" = bot trông như người thật
     "DUEL_BOT_LABEL": "0"
   }

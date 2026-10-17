@@ -3,3 +3,4 @@ BETTER_AUTH_SECRET=thay-bang-chuoi-ngau-nhien-dai-32-ky-tu
 # Không bắt buộc — bật đăng nhập Google khi có
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
+BETTER_AUTH_URL=http://localhost:8787
