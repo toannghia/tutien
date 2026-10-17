@@ -53,3 +53,15 @@ describe("luận đạo", () => {
     expect(ratingWindow(10_000)).toBeGreaterThan(ratingWindow(0));
   });
 });
+
+describe("phòng mời bạn", () => {
+  it("mã phòng 5 ký tự, không có ký tự dễ nhầm, chuẩn hoá được khi gõ", async () => {
+    const { newRoomCode, normalizeCode } = await import("../src/duel/logic");
+    const rand = seeded(3);
+    for (let i = 0; i < 500; i++) {
+      const c = newRoomCode(rand);
+      expect(c).toMatch(/^[A-HJKMNP-Z2-9]{5}$/);
+      expect(normalizeCode(` ${c.toLowerCase().slice(0, 2)}-${c.slice(2)} `)).toBe(c);
+    }
+  });
+});

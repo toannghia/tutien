@@ -261,6 +261,24 @@ nav.links a.active, nav.links a:hover { background: var(--bg-2); color: var(--in
 .fact details.explain { font-size: 13px; color: var(--muted); margin-top: 4px; }
 .fact details.explain summary { cursor: pointer; color: var(--ink-2); }
 
+/* ---------- Mời bạn ---------- */
+.friend-box { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 8px 0 20px; background: var(--panel); }
+.friend-box h3 { font-size: 18px; }
+.friend-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+.join-form { display: flex; gap: 8px; flex: 1 1 260px; }
+.join-form input { flex: 1; min-width: 0; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; font: 600 16px var(--sans); letter-spacing: .2em; text-transform: uppercase; }
+.join-form input::placeholder { letter-spacing: normal; text-transform: none; font-weight: 400; }
+.invite { text-align: center; max-width: 480px; margin: 0 auto; }
+.invite-card { border: 1px solid color-mix(in srgb, var(--gold) 55%, var(--line)); border-radius: 10px; padding: 20px 16px; background: var(--panel); margin-top: 12px; }
+.invite-code { display: flex; justify-content: center; gap: 8px; }
+.invite-code span { width: 48px; height: 58px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); font: 600 30px var(--serif); color: var(--gold); }
+.invite-qr { width: 200px; height: 200px; margin: 18px auto 12px; background: #fff; border-radius: 8px; padding: 8px; display: grid; place-items: center; }
+.invite-qr svg { width: 100%; height: 100%; }
+.invite-link input { width: 100%; background: var(--bg); color: var(--ink-2); border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; font: 13px var(--sans); text-align: center; }
+.invite-actions { display: flex; gap: 10px; justify-content: center; margin-top: 12px; }
+.invite-actions .btn { flex: 1; max-width: 180px; }
+.invite-wait { display: flex; gap: 8px; align-items: center; justify-content: center; margin-top: 14px; color: var(--muted); font-size: 14px; }
+
 /* ---------- Luận đạo ---------- */
 .duel-card { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 18px 20px; margin-top: 16px; }
 .duel-rating { font-family: var(--serif); font-size: 44px; line-height: 1.1; }
@@ -509,6 +527,7 @@ button, a, .option { touch-action: manipulation; -webkit-tap-highlight-color: tr
   .fighter .line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fighter .fname { font-size: 15px; }
   .duel-score { font-size: 24px; }
+  .invite-code span { width: 42px; height: 52px; font-size: 26px; }
   .bt-glyph { font-size: 44px; }
   .bt-ring { width: 116px; height: 116px; }
   .bt-ring > div { width: 94px; height: 94px; }

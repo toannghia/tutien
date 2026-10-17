@@ -117,11 +117,11 @@ function toggleTheme() {
 function route() {
   stopPlayback();
   closeModal();
-  const [name, arg] = location.hash.replace(/^#\/?/, "").split("/");
+  const [name, arg, arg2] = location.hash.replace(/^#\/?/, "").split("/");
   document.querySelectorAll("a[data-route]").forEach((a) => a.classList.toggle("active", a.dataset.route === name));
   window.scrollTo(0, 0);
   closeDuel();
-  const pages = { "": renderHome, play: renderPlay, duel: renderDuel, history: arg ? () => renderHistoryDetail(arg) : renderHistory, rank: renderRank, codex: renderCodex };
+  const pages = { "": renderHome, play: renderPlay, duel: arg === "join" ? () => Promise.resolve(joinRoom(arg2)) : renderDuel, history: arg ? () => renderHistoryDetail(arg) : renderHistory, rank: renderRank, codex: renderCodex };
   (pages[name] ?? renderHome)().catch((e) => ($view.innerHTML = `<div class="empty">${esc(e.message)}</div>`));
 }
 
@@ -1292,7 +1292,15 @@ async function renderDuel() {
       <div class="duel-stats"><span><b>${s.wins}</b> thắng</span><span><b>${s.losses}</b> thua</span><span><b>${s.draws}</b> hòa</span>${me.rank ? `<span>Hạng <b>${me.rank}</b></span>` : ""}</div>
     </div>
     ${me.guest ? `<div class="nudge">Ngươi đang là khách: được luận đạo thử nhưng <b>chưa tính Đạo vị</b>. <a href="#" id="duelSave">Lưu tiến trình</a> để lên bảng xếp hạng.</div>` : ""}
-    <button class="btn big" id="findMatch" style="margin:20px 0">Tìm đối thủ</button>
+    <button class="btn big" id="findMatch" style="margin:20px 0 8px">Tìm đối thủ</button>
+    <div class="friend-box">
+      <h3>Đấu với bạn</h3>
+      <p class="muted small">Tạo phòng rồi gửi mã, link hoặc mã QR cho bạn. Trận giao hữu, không tính Đạo vị.</p>
+      <div class="friend-row">
+        <button class="btn ghost" id="hostRoom">Tạo phòng mời bạn</button>
+        <form id="joinForm" class="join-form"><input id="joinCode" maxlength="8" placeholder="Nhập mã phòng" autocomplete="off" autocapitalize="characters" aria-label="Mã phòng"/><button class="btn" type="submit">Vào phòng</button></form>
+      </div>
+    </div>
     <h3 style="margin-top:12px">Trận gần đây</h3>
     ${
       me.recent.length
@@ -1306,6 +1314,11 @@ async function renderDuel() {
         : `<div class="empty">Chưa có trận nào.</div>`
     }</div>`;
   document.getElementById("findMatch").onclick = findMatch;
+  document.getElementById("hostRoom").onclick = hostRoom;
+  document.getElementById("joinForm").onsubmit = (e) => {
+    e.preventDefault();
+    joinRoom(document.getElementById("joinCode").value);
+  };
   document.getElementById("duelSave")?.addEventListener("click", (e) => {
     e.preventDefault();
     openAccount();
@@ -1539,12 +1552,14 @@ async function showEnd(m) {
     <div class="glyph">${glyph}</div><h2>${title}</h2>
     <div class="muted">${m.scores[0]} – ${m.scores[1]} điểm · đúng ${m.correct[0]}/5 câu</div>
     ${
-      m.ranked
+      m.friendly
+        ? `<div class="muted" style="margin:10px 0">Trận giao hữu — không tính Đạo vị.</div>`
+        : m.ranked
         ? `<div class="duel-delta ${m.delta >= 0 ? "good" : "bad"}">${m.delta >= 0 ? "+" : ""}${m.delta} Đạo vị → ${fmt(m.rating)} · ${esc(rankTitle(m.rating))}</div>`
         : `<div class="nudge">Trận đấu thử của khách không tính Đạo vị. <a href="#" id="endSave">Lưu tiến trình</a> để lên bảng xếp hạng.</div>`
     }
-    <div class="actions"><button class="btn" id="again">Đấu tiếp</button><button class="btn ghost" id="lobby">Về sảnh</button></div></div>`;
-  document.getElementById("again").onclick = findMatch;
+    <div class="actions"><button class="btn" id="again">${m.friendly ? "Tạo phòng mời lại" : "Đấu tiếp"}</button><button class="btn ghost" id="lobby">Về sảnh</button></div></div>`;
+  document.getElementById("again").onclick = m.friendly ? hostRoom : findMatch;
   document.getElementById("lobby").onclick = () => {
     closeDuel();
     renderDuel();
@@ -1557,6 +1572,140 @@ async function showEnd(m) {
     duel.roomWs?.close(1000, "done");
   } catch {}
   duel.roomWs = null;
+}
+
+// ---------------------------------------------------------------- Mời bạn: mã phòng, QR, link
+
+const QR_LIB = "https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js";
+let qrLoading = null;
+function loadQr() {
+  if (window.qrcode) return Promise.resolve(window.qrcode);
+  qrLoading ??= new Promise((resolve, reject) => {
+    const s = document.createElement("script");
+    s.src = QR_LIB;
+    s.onload = () => resolve(window.qrcode);
+    s.onerror = () => reject(new Error("Không tải được thư viện mã QR"));
+    document.head.append(s);
+  });
+  return qrLoading;
+}
+
+const inviteUrl = (code) => `${location.origin}/#/duel/join/${code}`;
+
+function hostRoom() {
+  closeDuel();
+  $view.innerHTML = `<div class="duel-search"><div class="seal-spin">邀</div><h2>Đang mở phòng…</h2></div>`;
+  const ws = new WebSocket(wsUrl("/api/duel/queue?mode=host"));
+  duel.queueWs = ws;
+  ws.onmessage = async (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type === "hosting") {
+      duel.offset = m.now - Date.now();
+      showInvite(m.code, m.expiresAt);
+    }
+    if (m.type === "matched") {
+      duel.queueWs = null;
+      clearInterval(duel.timer);
+      toast("Bạn đã vào phòng — bắt đầu luận đạo!");
+      enterRoom(m.roomId);
+    }
+    if (m.type === "expired") {
+      duel.queueWs = null;
+      clearInterval(duel.timer);
+      $view.innerHTML = `<div class="duel-search"><h2>Mã phòng đã hết hạn</h2><p class="muted">${esc(m.reason)}</p>
+        <button class="btn" id="reHost">Tạo phòng mới</button> <button class="btn ghost" id="toLobby">Về sảnh</button></div>`;
+      document.getElementById("reHost").onclick = hostRoom;
+      document.getElementById("toLobby").onclick = renderDuel;
+    }
+  };
+  ws.onclose = (e) => {
+    if (duel.queueWs === ws && e.code !== 1000) {
+      toast("Mất kết nối, phòng đã đóng.");
+      closeDuel();
+      renderDuel();
+    }
+  };
+}
+
+async function showInvite(code, expiresAt) {
+  const url = inviteUrl(code);
+  $view.innerHTML = `<div class="page invite">
+    <h1>Mời bạn luận đạo</h1>
+    <p class="muted">Gửi mã, link hoặc cho bạn quét mã QR. Trận giao hữu — không tính Đạo vị.</p>
+    <div class="invite-card">
+      <div class="invite-code" aria-label="Mã phòng">${[...code].map((c) => `<span>${c}</span>`).join("")}</div>
+      <div class="invite-qr" id="qr"><div class="muted small">Đang tạo mã QR…</div></div>
+      <div class="invite-link"><input readonly value="${esc(url)}" id="inviteUrl" aria-label="Link mời"/></div>
+      <div class="invite-actions">
+        <button class="btn" id="shareInvite">Chia sẻ link</button>
+        <button class="btn ghost" id="copyInvite">Sao chép</button>
+      </div>
+      <div class="invite-wait"><span class="dec-dot"></span> Đang chờ bạn vào phòng · còn <b id="ttl">10:00</b></div>
+    </div>
+    <button class="btn ghost" id="cancelHost" style="margin-top:16px">Huỷ phòng</button>
+  </div>`;
+  const ttl = () => {
+    const left = Math.max(0, expiresAt - (Date.now() + duel.offset));
+    const el = document.getElementById("ttl");
+    if (el) el.textContent = `${Math.floor(left / 60000)}:${String(Math.floor((left % 60000) / 1000)).padStart(2, "0")}`;
+  };
+  ttl();
+  duel.timer = setInterval(ttl, 1000);
+  document.getElementById("cancelHost").onclick = () => {
+    closeDuel();
+    renderDuel();
+  };
+  document.getElementById("copyInvite").onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(`Luận đạo với ta trên Tu Tiên Lộ! Mã phòng: ${code} — ${url}`);
+      toast("Đã sao chép lời mời.");
+    } catch {
+      document.getElementById("inviteUrl").select();
+    }
+  };
+  document.getElementById("shareInvite").onclick = async () => {
+    const text = `Luận đạo với ta trên Tu Tiên Lộ! Mã phòng: ${code}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "Tu Tiên Lộ — Luận đạo", text, url });
+      } catch {}
+    } else document.getElementById("copyInvite").click();
+  };
+  try {
+    const qrcode = await loadQr();
+    const qr = qrcode(0, "M");
+    qr.addData(url);
+    qr.make();
+    const box = document.getElementById("qr");
+    if (box) box.innerHTML = qr.createSvgTag({ cellSize: 6, margin: 2, scalable: true });
+  } catch (e) {
+    const box = document.getElementById("qr");
+    if (box) box.innerHTML = `<div class="muted small">${esc(e.message)}</div>`;
+  }
+}
+
+function joinRoom(rawCode) {
+  closeDuel();
+  const code = String(rawCode ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!code) return renderDuel();
+  // Bỏ mã khỏi địa chỉ để tải lại trang không cố vào lại phòng đã dùng
+  if (location.hash.startsWith("#/duel/join")) history.replaceState(null, "", "#/duel");
+  $view.innerHTML = `<div class="duel-search"><div class="seal-spin">入</div><h2>Đang vào phòng ${esc(code)}…</h2></div>`;
+  const ws = new WebSocket(wsUrl(`/api/duel/queue?mode=join&code=${encodeURIComponent(code)}`));
+  duel.queueWs = ws;
+  ws.onmessage = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type === "matched") {
+      duel.queueWs = null;
+      enterRoom(m.roomId);
+    }
+    if (m.type === "error") {
+      duel.queueWs = null;
+      $view.innerHTML = `<div class="duel-search"><h2>Không vào được phòng</h2><p class="muted">${esc(m.reason)}</p>
+        <button class="btn" id="toLobby">Về sảnh Luận đạo</button></div>`;
+      document.getElementById("toLobby").onclick = renderDuel;
+    }
+  };
 }
 
 // Chỉ khi chạy local: cho phép gọi thử các cảnh đột phá từ console để xem hiệu ứng

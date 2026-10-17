@@ -19,6 +19,7 @@ type Room = {
   endsAt: number; // hết phase hiện tại
   botPlan: { at: number; choiceId: string | null; ms: number } | null;
   createdAt: number;
+  friendly?: boolean; // trận mời bạn: giao hữu, không tính Đạo vị
 };
 
 const ALL = new Map(Object.values(BANKS).flat().map((q) => [q.id, q] as const));
@@ -65,7 +66,7 @@ export class DuelRoom extends DurableObject<Env> {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  private async init({ roomId, fighters }: { roomId: string; fighters: Fighter[] }) {
+  private async init({ roomId, fighters, friendly = false }: { roomId: string; fighters: Fighter[]; friendly?: boolean }) {
     const qs = pickDuelQuestions();
     const now = Date.now();
     this.room = {
@@ -79,6 +80,7 @@ export class DuelRoom extends DurableObject<Env> {
       endsAt: now + DUEL.connectGraceMs,
       botPlan: null,
       createdAt: now,
+      friendly,
     };
     await this.save();
     await this.ctx.storage.setAlarm(this.room.endsAt);
@@ -262,7 +264,7 @@ export class DuelRoom extends DurableObject<Env> {
     const winner = winnerOf(a.score, b.score);
     const scoreA = winner === "a" ? 1 : winner === "draw" ? 0.5 : 0;
     // Chỉ tài khoản đã đăng ký mới có Đạo vị. Khách và bot không bị lưu điểm.
-    const ranked = (p: Player) => !p.bot && !p.guest;
+    const ranked = (p: Player) => !room.friendly && !p.bot && !p.guest;
     a.delta = ranked(a) ? eloDelta(a.rating, b.rating, scoreA) : 0;
     b.delta = ranked(b) ? eloDelta(b.rating, a.rating, 1 - scoreA) : 0;
 
@@ -308,6 +310,7 @@ export class DuelRoom extends DurableObject<Env> {
         delta: me.delta,
         rating: me.newRating,
         ranked: ranked(me),
+        friendly: !!room.friendly,
       });
     });
     await this.save();
@@ -321,6 +324,7 @@ export class DuelRoom extends DurableObject<Env> {
     const pub = (p: Player) => ({ name: p.name, rating: p.rating, realm: p.realm, path: p.path, guest: p.guest, bot: label ? p.bot : false, connected: p.bot || p.connected });
     return {
       type: "state",
+      friendly: !!room.friendly,
       phase: room.phase,
       index: room.index,
       total: room.qids.length,

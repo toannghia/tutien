@@ -101,6 +101,21 @@ export function botAnswer(q: Question, rating: number, rand: () => number = Math
   return { choiceId: pick(q.options, rand).id, ms: Math.min(ms, DUEL.answerMs - 400) };
 }
 
+// ---------------------------------------------------------------- Phòng mời bạn
+
+// Bỏ các ký tự dễ nhầm (0/O, 1/I/L) để đọc mã qua điện thoại cho dễ
+const CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+export const ROOM_CODE_TTL_MS = 10 * 60_000;
+
+export function newRoomCode(rand: () => number = Math.random, length = 5) {
+  return Array.from({ length }, () => CODE_ALPHABET[Math.floor(rand() * CODE_ALPHABET.length)]).join("");
+}
+
+/** Chuẩn hoá mã người dùng gõ: bỏ khoảng trắng/dấu gạch, viết hoa. */
+export function normalizeCode(input: string) {
+  return input.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+}
+
 /** Thời gian chờ trước khi ghép bot: 6–12s — đủ để trông như đang tìm người thật. */
 export const botWaitMs = (rand: () => number = Math.random) => 6000 + Math.floor(rand() * 6000);
 

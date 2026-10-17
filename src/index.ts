@@ -202,6 +202,10 @@ app.get("/api/duel/queue", async (c) => {
   if (!user) return c.text("unauthenticated", 401);
   const headers = new Headers(c.req.raw.headers);
   headers.set("X-Fighter", JSON.stringify(await fighterOf(c.env, user)));
+  // ?mode=host: tạo phòng mời bạn · ?mode=join&code=XXXXX: vào phòng bằng mã · mặc định: hàng chờ thường
+  const mode = c.req.query("mode");
+  headers.set("X-Mode", mode === "host" || mode === "join" ? mode : "queue");
+  if (mode === "join") headers.set("X-Code", c.req.query("code") ?? "");
   const stub = c.env.MATCHMAKER.get(c.env.MATCHMAKER.idFromName("global"));
   return stub.fetch(c.req.raw.url, { headers });
 });
