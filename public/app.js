@@ -1728,8 +1728,189 @@ const WORLD_LOOK = {
   shattered: { glyph: "殘", hue: 220 },
 };
 
+// ---------------------------------------------------------------- Sa bàn: địa hình vạn giới (SVG 1000×640) đặt nghiêng 3D
+
+const SB = { w: 1000, h: 640 };
+// Mỗi vùng: hình đất (đa giác hoặc nhiều mảnh), màu đất, tâm cắm cờ, đồ trang trí địa hình
+const REGIONS = {
+  peaceful: { land: "#b9d59c", shapes: [[[200, 230], [420, 200], [440, 400], [300, 440], [180, 380]]], flag: [318, 318] },
+  abundant: { land: "#7fb46b", shapes: [[[420, 200], [640, 180], [660, 360], [440, 400]]], flag: [548, 300] },
+  wild: { land: "#a8a48e", shapes: [[[640, 180], [880, 230], [900, 420], [660, 360]]], flag: [776, 318] },
+  turmoil: { land: "#bba47b", shapes: [[[440, 400], [660, 360], [700, 560], [460, 590], [380, 500]]], flag: [548, 488] },
+  declining: { land: "#dcc792", shapes: [[[180, 380], [300, 440], [380, 500], [460, 590], [260, 612], [140, 520]]], flag: [290, 528] },
+  blood: { land: "#7f3b34", shapes: [[[660, 360], [900, 420], [880, 582], [700, 560]]], flag: [792, 500] },
+  hidden: { land: "#c9e3c1", islands: [[120, 92, 64, 28], [228, 152, 46, 22], [82, 194, 36, 17]], flag: [128, 86] },
+  shattered: {
+    land: "#8f8ba9",
+    shapes: [
+      [[740, 58], [822, 48], [834, 110], [762, 122]],
+      [[852, 88], [934, 100], [912, 162], [862, 152]],
+      [[770, 142], [842, 152], [822, 204], [760, 194]],
+    ],
+    flag: [800, 92],
+  },
+};
+
+const pts = (poly) => poly.map(([x, y]) => `${x},${y}`).join(" ");
+const mountain = (x, y, s, snow = true) =>
+  `<path d="M${x - s},${y} L${x},${y - s * 1.5} L${x + s},${y} Z" fill="#8c9088"/><path d="M${x},${y - s * 1.5} L${x + s},${y} L${x + s * 0.15},${y} Z" fill="#6c7168"/>${
+    snow ? `<path d="M${x - s * 0.32},${y - s * 1.02} L${x},${y - s * 1.5} L${x + s * 0.32},${y - s * 1.02} L${x + s * 0.1},${y - s * 1.12} Z" fill="#f2f2ec"/>` : ""
+  }`;
+const tree = (x, y, r = 7, c = "#3f7a45") => `<rect x="${x - 1}" y="${y}" width="2" height="${r * 0.8}" fill="#6b4a2f"/><circle cx="${x}" cy="${y}" r="${r}" fill="${c}"/><circle cx="${x - r * 0.3}" cy="${y - r * 0.3}" r="${r * 0.45}" fill="#ffffff22"/>`;
+const house = (x, y) => `<rect x="${x - 6}" y="${y - 6}" width="12" height="8" fill="#efe6d2"/><path d="M${x - 8},${y - 6} L${x},${y - 13} L${x + 8},${y - 6} Z" fill="#a4553f"/>`;
+const banner = (x, y, c) => `<line x1="${x}" y1="${y}" x2="${x}" y2="${y - 22}" stroke="#4b3a2a" stroke-width="2"/><path d="M${x},${y - 22} L${x + 14},${y - 18} L${x},${y - 13} Z" fill="${c}"/>`;
+const smoke = (x, y) => `<circle cx="${x}" cy="${y}" r="8" fill="#6d6d6d55"/><circle cx="${x + 6}" cy="${y - 9}" r="6" fill="#7a7a7a44"/><circle cx="${x + 2}" cy="${y - 17}" r="4" fill="#88888833"/>`;
+const dune = (x, y, w) => `<path d="M${x - w},${y} Q${x},${y - w * 0.5} ${x + w},${y}" fill="none" stroke="#b9a26a" stroke-width="3" stroke-linecap="round"/>`;
+const spring = (x, y) => `<circle cx="${x}" cy="${y}" r="14" fill="url(#sbGlow)"/><ellipse cx="${x}" cy="${y}" rx="8" ry="5" fill="#7fe0e6"/>`;
+const crack = (d) => `<path d="${d}" fill="none" stroke="#2b2540" stroke-width="2.5" stroke-linejoin="round"/>`;
+const cloud = (x, y, s = 1) => `<g opacity=".9"><ellipse cx="${x}" cy="${y}" rx="${26 * s}" ry="${10 * s}" fill="#fff"/><ellipse cx="${x - 14 * s}" cy="${y + 3 * s}" rx="${16 * s}" ry="${8 * s}" fill="#f4f7f6"/><ellipse cx="${x + 16 * s}" cy="${y + 4 * s}" rx="${15 * s}" ry="${7 * s}" fill="#eef3f2"/></g>`;
+
+function sandboxSvg() {
+  const decor = [];
+  // Thanh Bình: ruộng bậc, làng, cây
+  decor.push(`<g clip-path="url(#clip-peaceful)">${Array.from({ length: 7 }, (_, i) => `<line x1="210" y1="${262 + i * 10}" x2="330" y2="${250 + i * 10}" stroke="#9fc07f" stroke-width="5"/>`).join("")}</g>`);
+  decor.push(house(372, 284), house(392, 304), house(352, 306), tree(246, 392), tree(266, 404, 6), tree(404, 368), tree(214, 356, 6));
+  // Linh Thịnh: rừng rậm, suối linh khí
+  for (let i = 0; i < 26; i++) {
+    const x = 450 + ((i * 53) % 190), y = 214 + ((i * 37) % 170);
+    if (y < 200 + (x - 420) * -0.09 + 18 || y > 390 - (x - 440) * 0.18) continue;
+    decor.push(tree(x, y, 7 + (i % 3), i % 2 ? "#2f6b3a" : "#3c8044"));
+  }
+  decor.push(spring(520, 262), spring(598, 334));
+  // Hung Hoang: núi đá
+  decor.push(mountain(702, 268, 22), mountain(744, 250, 30), mountain(796, 278, 32), mountain(846, 310, 24), mountain(764, 340, 20, false), mountain(826, 372, 18, false));
+  // Loạn Thiên: chiến địa, cờ, khói, hố
+  decor.push(`<ellipse cx="482" cy="522" rx="12" ry="5" fill="#7a6545"/><ellipse cx="642" cy="434" rx="10" ry="4" fill="#7a6545"/>`);
+  decor.push(banner(502, 456, "#b94e43"), banner(606, 474, "#3e6fb0"), banner(566, 540, "#b94e43"), banner(470, 470, "#3e6fb0"), smoke(532, 506), smoke(626, 528));
+  // Mạt Pháp: đồi cát, cây khô
+  decor.push(dune(220, 482, 22), dune(296, 548, 26), dune(366, 572, 20), dune(206, 566, 18), dune(250, 440, 14));
+  decor.push(`<path d="M334,512 L334,492 M334,500 L326,490 M334,496 L342,486" stroke="#7b6744" stroke-width="2.5" fill="none" stroke-linecap="round"/>`);
+  // Huyết Sát: núi lửa, dung nham
+  decor.push(`<path d="M748,488 L776,436 L806,436 L836,488 Z" fill="#4a2522"/><path d="M776,436 L806,436 L836,488 L812,488 Z" fill="#3a1c1a"/><ellipse cx="791" cy="436" rx="15" ry="5" fill="#ff7a2f"/>`);
+  decor.push(`<path d="M791,438 Q786,462 770,486 Q748,512 722,530" fill="none" stroke="#ff8a3d" stroke-width="3" opacity=".9"/><path d="M795,440 Q812,470 840,500 Q858,520 870,548" fill="none" stroke="#ff6a2a" stroke-width="2.5" opacity=".85"/>`);
+  decor.push(smoke(792, 420), `<circle cx="720" cy="470" r="5" fill="#3a1c1a"/><circle cx="860" cy="450" r="6" fill="#3a1c1a"/>`);
+  // Ẩn Tiên: lầu các trên đảo, mây
+  decor.push(`<rect x="110" y="70" width="20" height="10" fill="#efe6d2"/><path d="M106,70 L120,60 L134,70 Z" fill="#b8553f"/><path d="M110,62 L120,54 L130,62 Z" fill="#b8553f"/>`, tree(150, 92, 6), tree(92, 98, 5), tree(232, 148, 6), tree(82, 192, 5));
+  decor.push(cloud(60, 60, 0.9), cloud(250, 104, 0.8), cloud(170, 214, 1), cloud(40, 230, 0.7));
+  // Tàn Thiên: vết nứt, hư không
+  decor.push(crack("M752,72 L780,88 L772,104 L810,98"), crack("M864,104 L888,120 L880,140 L906,132"), crack("M778,160 L800,172 L792,190"));
+  decor.push(`<circle cx="842" cy="132" r="22" fill="url(#sbVoid)"/><circle cx="752" cy="136" r="14" fill="url(#sbVoid)"/>`);
+
+  const land = Object.entries(REGIONS)
+    .map(([id, r]) => {
+      const shapes = (r.shapes ?? []).map((poly) => `<polygon points="${pts(poly)}"/>`).join("");
+      const isl = (r.islands ?? []).map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}"/>`).join("");
+      return { id, r, shapes, isl };
+    });
+  const coast = land.map(({ shapes, isl }) => shapes + isl).join("");
+  return `<svg viewBox="0 0 ${SB.w} ${SB.h}" class="sb-svg" aria-hidden="true">
+    <defs>
+      <linearGradient id="sbSea" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b7286"/><stop offset="1" stop-color="#1c5466"/></linearGradient>
+      <radialGradient id="sbGlow"><stop offset="0" stop-color="#9ff7ff" stop-opacity=".9"/><stop offset="1" stop-color="#9ff7ff" stop-opacity="0"/></radialGradient>
+      <radialGradient id="sbVoid"><stop offset="0" stop-color="#1a1030"/><stop offset=".6" stop-color="#5b3fa0" stop-opacity=".7"/><stop offset="1" stop-color="#5b3fa0" stop-opacity="0"/></radialGradient>
+      ${land.map(({ id, shapes, isl }) => `<clipPath id="clip-${id}">${shapes}${isl}</clipPath>`).join("")}
+    </defs>
+    <rect width="${SB.w}" height="${SB.h}" fill="url(#sbSea)"/>
+    ${Array.from({ length: 34 }, (_, i) => `<path d="M${(i * 137) % 980},${20 + ((i * 89) % 600)} q8,-5 16,0 t16,0" fill="none" stroke="#ffffff30" stroke-width="2"/>`).join("")}
+    <g class="islands-shadow" fill="#13404f" opacity=".55">${REGIONS.hidden.islands.map(([x, y, rx, ry]) => `<ellipse cx="${x + 10}" cy="${y + 26}" rx="${rx}" ry="${ry * 0.8}"/>`).join("")}</g>
+    <g fill="#e6d7a6" stroke="#e6d7a6" stroke-width="18" stroke-linejoin="round">${coast}</g>
+    ${land
+      .map(({ id, r, shapes, isl }) => `<g class="sb-region" data-id="${id}" fill="${r.land}" stroke="#00000033" stroke-width="1.5" stroke-linejoin="round">${shapes}${isl}</g>`)
+      .join("")}
+    <g class="sb-decor" pointer-events="none">${decor.join("")}</g>
+  </svg>`;
+}
+
+function sandboxHtml(data, pick) {
+  const c = app.codex;
+  const sectName = (id) => c.sects.find((x) => x.id === id)?.name ?? "";
+  const flags = data.worlds
+    .map((w) => {
+      const r = REGIONS[w.id];
+      const look = WORLD_LOOK[w.id] ?? { glyph: "界", hue: 120 };
+      const [x, y] = r.flag;
+      const pole = Math.round(30 + 16 * Math.log2(1 + w.players));
+      const top = w.sects.find((s) => s.power > 0);
+      return `${w.active ? `<span class="sb-ring" style="left:${(x / SB.w) * 100}%;top:${(y / SB.h) * 100}%"></span>` : ""}
+        <button class="sb-flag ${w.id === pick ? "on" : ""}" data-id="${w.id}" style="left:${(x / SB.w) * 100}%;top:${(y / SB.h) * 100}%;--pole:${pole}px;--hue:${look.hue}" aria-label="${esc(byId(c.worlds, w.id).name)}: ${w.players} tu sĩ">
+          <span class="sb-cloth"><b>${look.glyph}</b><span class="sb-name">${esc(byId(c.worlds, w.id).name)}</span><span class="sb-count">${fmt(w.players)} tu sĩ${w.active ? ` · <i class="live"></i>${fmt(w.active)}` : ""}</span>${top ? `<span class="sb-sect">⚑ ${esc(sectName(top.id))}</span>` : ""}</span>
+          <span class="sb-pole"></span>
+        </button>`;
+    })
+    .join("");
+  return `<div class="sandbox-wrap">
+    <div class="sandbox-ctrl">
+      <button data-act="left" aria-label="Xoay trái">⟲</button><button data-act="right" aria-label="Xoay phải">⟳</button>
+      <button data-act="flat" class="sb-flat-btn">Nhìn từ trên</button><button data-act="list">Danh sách</button>
+    </div>
+    <div class="sandbox"><div class="sb-board">${sandboxSvg()}${flags}</div><div class="sb-shadow"></div></div>
+  </div>`;
+}
+
+// Xoay (nút hoặc kéo ngang), nghiêng ↔ nhìn từ trên, chuyển sang danh sách
+function wireSandbox(onList) {
+  const box = document.querySelector(".sandbox");
+  if (!box) return;
+  let spin = Number(store("tt-sb-spin") ?? 0);
+  let flat = store("tt-sb-flat") === "1";
+  const apply = () => {
+    box.style.setProperty("--spin", `${spin}deg`);
+    box.classList.toggle("flat", flat);
+    const fb = document.querySelector(".sb-flat-btn");
+    if (fb) fb.textContent = flat ? "Nhìn nghiêng" : "Nhìn từ trên";
+    store("tt-sb-spin", String(spin));
+    store("tt-sb-flat", flat ? "1" : "0");
+  };
+  apply();
+  document.querySelectorAll(".sandbox-ctrl button").forEach(
+    (b) =>
+      (b.onclick = () => {
+        const a = b.dataset.act;
+        if (a === "left") spin = Math.max(-40, spin - 10);
+        if (a === "right") spin = Math.min(40, spin + 10);
+        if (a === "flat") flat = !flat;
+        if (a === "list") {
+          store("tt-world-view", "list");
+          return onList();
+        }
+        apply();
+      }),
+  );
+  // Kéo ngang để xoay
+  let startX = null, startSpin = 0, moved = false;
+  box.addEventListener("pointerdown", (e) => {
+    startX = e.clientX;
+    startSpin = spin;
+    moved = false;
+  });
+  box.addEventListener("pointermove", (e) => {
+    if (startX === null) return;
+    const dx = e.clientX - startX;
+    if (Math.abs(dx) > 6) moved = true;
+    if (!moved) return;
+    spin = Math.max(-40, Math.min(40, startSpin + dx / 6));
+    box.classList.add("dragging");
+    apply();
+  });
+  const end = () => {
+    startX = null;
+    box.classList.remove("dragging");
+  };
+  box.addEventListener("pointerup", end);
+  box.addEventListener("pointerleave", end);
+  // Kéo xong thì không tính là bấm chọn
+  box.addEventListener("click", (e) => {
+    if (moved) {
+      e.stopPropagation();
+      e.preventDefault();
+      moved = false;
+    }
+  }, true);
+}
+
 async function renderWorld(selected) {
   const data = await api("/api/world");
+  const view = store("tt-world-view") ?? "sandbox";
   const c = app.codex;
   const realmName = (i) => (i === null || i === undefined ? "—" : c.realms[i]?.name ?? "—");
   const pick = selected ?? store("tt-world") ?? data.worlds.slice().sort((a, b) => b.players - a.players)[0]?.id ?? "peaceful";
@@ -1737,7 +1918,7 @@ async function renderWorld(selected) {
   $view.innerHTML = `<div class="page world-page">
     <h1>Bản đồ vạn giới</h1>
     <p class="muted">Thiên địa hiện có <b>${fmt(t.players ?? 0)}</b> tu sĩ đã trải qua <b>${fmt(t.lives ?? 0)}</b> kiếp · <b>${fmt(t.active ?? 0)}</b> người đang tu hành. Chọn một giới diện để xem môn phái và cao thủ.</p>
-    <div class="world-map">${data.worlds
+    ${view === "list" ? `<div class="world-map">${data.worlds
       .map((w) => {
         const def = byId(c.worlds, w.id);
         const look = WORLD_LOOK[w.id] ?? { glyph: "界", hue: 120 };
@@ -1747,18 +1928,24 @@ async function renderWorld(selected) {
           <span class="wstat"><b>${fmt(w.players)}</b> tu sĩ${w.active ? ` · <i class="live"></i>${fmt(w.active)}` : ""}</span>
         </button>`;
       })
-      .join("")}</div>
+      .join("")}</div><p><button class="btn ghost small" id="toSandbox">Xem sa bàn</button></p>` : sandboxHtml(data, pick)}
     <div id="worldDetail"></div>
   </div>`;
-  $view.querySelectorAll(".world-tile").forEach(
-    (b) =>
-      (b.onclick = () => {
-        store("tt-world", b.dataset.id);
-        $view.querySelectorAll(".world-tile").forEach((x) => x.classList.toggle("on", x === b));
-        detail(b.dataset.id);
-      }),
-  );
-  detail(pick);
+  const select = (id, scroll = false) => {
+    store("tt-world", id);
+    $view.querySelectorAll(".world-tile, .sb-flag").forEach((x) => x.classList.toggle("on", x.dataset.id === id));
+    $view.querySelectorAll(".sb-region").forEach((x) => x.classList.toggle("on", x.dataset.id === id));
+    detail(id);
+    if (scroll) document.getElementById("worldDetail").scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  $view.querySelectorAll(".world-tile, .sb-flag").forEach((b) => (b.onclick = () => select(b.dataset.id, b.classList.contains("sb-flag"))));
+  $view.querySelectorAll(".sb-region").forEach((g) => g.addEventListener("click", () => select(g.dataset.id, true)));
+  document.getElementById("toSandbox")?.addEventListener("click", () => {
+    store("tt-world-view", "sandbox");
+    renderWorld(pick);
+  });
+  wireSandbox(() => renderWorld(store("tt-world")));
+  select(pick);
 
   function detail(id) {
     const w = data.worlds.find((x) => x.id === id);
