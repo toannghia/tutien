@@ -121,7 +121,8 @@ function route() {
   document.querySelectorAll("a[data-route]").forEach((a) => a.classList.toggle("active", a.dataset.route === name));
   window.scrollTo(0, 0);
   closeDuel();
-  const pages = { "": renderHome, play: renderPlay, duel: arg === "join" ? () => Promise.resolve(joinRoom(arg2)) : renderDuel, history: arg ? () => renderHistoryDetail(arg) : renderHistory, rank: renderRank, codex: renderCodex };
+  const pages = { "": renderHome, play: renderPlay, world: () => renderWorld(),
+    duel: arg === "join" ? () => Promise.resolve(joinRoom(arg2)) : renderDuel, history: arg ? () => renderHistoryDetail(arg) : renderHistory, rank: renderRank, codex: renderCodex };
   (pages[name] ?? renderHome)().catch((e) => ($view.innerHTML = `<div class="empty">${esc(e.message)}</div>`));
 }
 
@@ -370,8 +371,8 @@ function updateSheet() {
   stripHtml(document.getElementById("strip"), run, realm);
 }
 
-const statOf = (run) => ({ health: run.health, lifespan: run.lifespan, progress: run.progress, resources: run.resources, luck: run.luck, comprehension: run.comprehension, sect: run.sect, partner: run.partner, path: run.path });
-const statFromFact = (t) => ({ health: t.h, lifespan: t.l, progress: t.p, resources: t.r, luck: t.lk, comprehension: t.c, sect: t.sc, partner: t.pt, path: t.pa });
+const statOf = (run) => ({ health: run.health, lifespan: run.lifespan, progress: run.progress, resources: run.resources, luck: run.luck, comprehension: run.comprehension, sect: run.sect, sectId: run.sectId, partner: run.partner, path: run.path });
+const statFromFact = (t) => ({ health: t.h, lifespan: t.l, progress: t.p, resources: t.r, luck: t.lk, comprehension: t.c, sect: t.sc, sectId: t.si, partner: t.pt, path: t.pa });
 
 function sheetHtml(el, run, { realm, label, age, stat, shown = run.facts.length }) {
   const p = run.profile;
@@ -402,7 +403,7 @@ function sheetHtml(el, run, { realm, label, age, stat, shown = run.facts.length 
       <div class="kv"><span class="k">Thể chất</span><span class="v">${esc(byId(c.physiques, p.physique).name)}</span></div>
       <div class="kv"><span class="k">Đạo đồ</span><span class="v">${esc(byId(c.paths, st.path)?.name ?? "—")}</span></div>
       ${quizzes.length ? `<div class="kv"><span class="k">Khảo hạch</span><span class="v">${quizOk}/${quizzes.length} đúng</span></div>` : ""}
-      <div class="kv"><span class="k">Tông môn</span><span class="v">${sect}</span></div>
+      <div class="kv"><span class="k">Tông môn</span><span class="v">${sect}${st.sectId ? ` · ${esc(c.sects.find((x) => x.id === st.sectId)?.name ?? "")}` : ""}</span></div>
       <div class="kv"><span class="k">Đạo lữ</span><span class="v">${partner}</span></div>
     </div>
     <div class="group detail">
@@ -1066,7 +1067,7 @@ async function renderRank(by = "realm") {
 
 async function renderCodex(tab = "realms") {
   const c = app.codex;
-  const tabs = { paths: "Đạo đồ", realms: "Cảnh giới", roots: "Linh căn", physiques: "Thể chất", origins: "Xuất thân", worlds: "Giới diện", achievements: "Thành tựu" };
+  const tabs = { paths: "Đạo đồ", realms: "Cảnh giới", roots: "Linh căn", physiques: "Thể chất", origins: "Xuất thân", worlds: "Giới diện", sects: "Môn phái", achievements: "Thành tựu" };
   const card = (title, body, locked = false) => `<div class="card ${locked ? "locked" : ""}"><h3>${esc(title)}</h3><div class="muted small">${body}</div></div>`;
   const content = {
     realms: () =>
@@ -1078,6 +1079,7 @@ async function renderCodex(tab = "realms") {
           ),
         )
         .join(""),
+    sects: () => c.worlds.map((w) => `<div class="card"><h3>${esc(w.name)}</h3>${c.sects.filter((x) => x.world === w.id).map((x) => `<div class="kv"><span class="k">${esc(x.glyph)} ${esc(x.name)}</span></div><div class="muted small" style="margin-bottom:6px">${esc(x.desc)}</div>`).join("")}</div>`).join(""),
     paths: () => c.paths.map((p) => card(`${p.glyph} ${p.name}`, `${esc(p.desc)}<br/><b>${esc(p.perk)}</b><br/>Ngân hàng: ${p.questions} câu hỏi · khảo hạch khi nhập môn, ở giảng đường tông môn, trước mỗi bình cảnh (vấn tâm) và khi gặp kỳ nhân.`)).join(""),
     roots: () => c.roots.map((r) => card(r.name, `${esc(r.desc)}<br/>Điểm linh căn: ${r.score}`)).join(""),
     physiques: () => c.physiques.map((p) => card(p.name, esc(p.desc))).join(""),
@@ -1706,6 +1708,99 @@ function joinRoom(rawCode) {
       document.getElementById("toLobby").onclick = renderDuel;
     }
   };
+}
+
+// ---------------------------------------------------------------- Bản đồ thế giới
+
+const WORLD_LOOK = {
+  peaceful: { glyph: "平", hue: 150 },
+  abundant: { glyph: "靈", hue: 190 },
+  turmoil: { glyph: "亂", hue: 25 },
+  wild: { glyph: "荒", hue: 90 },
+  declining: { glyph: "末", hue: 40 },
+  hidden: { glyph: "隱", hue: 260 },
+  blood: { glyph: "血", hue: 0 },
+  shattered: { glyph: "殘", hue: 220 },
+};
+
+async function renderWorld(selected) {
+  const data = await api("/api/world");
+  const c = app.codex;
+  const realmName = (i) => (i === null || i === undefined ? "—" : c.realms[i]?.name ?? "—");
+  const pick = selected ?? store("tt-world") ?? data.worlds.slice().sort((a, b) => b.players - a.players)[0]?.id ?? "peaceful";
+  const t = data.totals;
+  $view.innerHTML = `<div class="page world-page">
+    <h1>Bản đồ vạn giới</h1>
+    <p class="muted">Thiên địa hiện có <b>${fmt(t.players ?? 0)}</b> tu sĩ đã trải qua <b>${fmt(t.lives ?? 0)}</b> kiếp · <b>${fmt(t.active ?? 0)}</b> người đang tu hành. Chọn một giới diện để xem môn phái và cao thủ.</p>
+    <div class="world-map">${data.worlds
+      .map((w) => {
+        const def = byId(c.worlds, w.id);
+        const look = WORLD_LOOK[w.id] ?? { glyph: "界", hue: 120 };
+        return `<button class="world-tile ${w.id === pick ? "on" : ""}" data-id="${w.id}" style="--hue:${look.hue}">
+          <span class="wglyph">${look.glyph}</span>
+          <span class="wname">${esc(def.name)}</span>
+          <span class="wstat"><b>${fmt(w.players)}</b> tu sĩ${w.active ? ` · <i class="live"></i>${fmt(w.active)}` : ""}</span>
+        </button>`;
+      })
+      .join("")}</div>
+    <div id="worldDetail"></div>
+  </div>`;
+  $view.querySelectorAll(".world-tile").forEach(
+    (b) =>
+      (b.onclick = () => {
+        store("tt-world", b.dataset.id);
+        $view.querySelectorAll(".world-tile").forEach((x) => x.classList.toggle("on", x === b));
+        detail(b.dataset.id);
+      }),
+  );
+  detail(pick);
+
+  function detail(id) {
+    const w = data.worlds.find((x) => x.id === id);
+    const def = byId(c.worlds, id);
+    const look = WORLD_LOOK[id] ?? { hue: 120 };
+    const maxPower = Math.max(1, ...w.sects.map((x) => Number(x.power)));
+    const sectDef = (sid) => c.sects.find((x) => x.id === sid);
+    document.getElementById("worldDetail").innerHTML = `<section class="world-detail" style="--hue:${look.hue}">
+      <div class="wd-head"><span class="wglyph big">${look.glyph}</span><div><h2>${esc(def.name)}</h2><div class="muted small">${esc(def.desc)} · Hiểm họa ×${def.danger} · Cơ duyên ×${def.fortune}</div></div></div>
+      <div class="wd-stats">
+        <div><small>Tu sĩ</small><b>${fmt(w.players)}</b></div>
+        <div><small>Đang tu hành</small><b>${fmt(w.active)}</b></div>
+        <div><small>Số kiếp</small><b>${fmt(w.lives)}</b></div>
+        <div><small>Thọ trung bình</small><b>${w.avgAge ? fmt(w.avgAge) : "—"}</b></div>
+        <div><small>Thọ cao nhất</small><b>${w.maxAge ? fmt(w.maxAge) : "—"}</b></div>
+        <div><small>Cảnh giới cao nhất</small><b>${esc(realmName(w.topRealm))}</b></div>
+      </div>
+      <h3>Môn phái</h3>
+      <div class="sect-list">${w.sects
+        .map(
+          (s, i) => `<div class="sect-row">
+            <div class="sect-rank ${i === 0 && s.power ? "first" : ""}">${i + 1}</div>
+            <span class="sglyph">${esc(sectDef(s.id)?.glyph ?? "")}</span>
+            <div class="main"><div class="title">${esc(sectDef(s.id)?.name ?? s.id)}${i === 0 && s.power ? ' <span class="crown">mạnh nhất</span>' : ""}</div>
+              <div class="sub">${esc(sectDef(s.id)?.desc ?? "")}</div>
+              <div class="power"><i style="width:${(Number(s.power) / maxPower) * 100}%"></i></div>
+              <div class="sub">${fmt(s.members)} đệ tử · ${fmt(s.elders)} trưởng lão · đỉnh cao ${esc(realmName(s.topRealm))}</div>
+              <div class="sub leader">${s.leader ? `Mạnh nhất: <b>${esc(s.leader.name)}</b> — ${esc(realmName(s.leader.realm))}, ${fmt(s.leader.age)} tuổi${s.leader.rank === "elder" ? " · trưởng lão" : ""}` : "Chưa có đệ tử nào."}</div></div>
+            <div class="sect-power"><b>${fmt(s.power)}</b><small>thế lực</small></div>
+          </div>`,
+        )
+        .join("")}</div>
+      <h3>Cao thủ ${esc(def.name)}</h3>
+      ${
+        w.top.length
+          ? `<div class="list">${w.top
+              .map(
+                (p, i) => `<div class="item"><div class="no ${i === 0 ? "top" : ""}">${i + 1}</div>
+                  <div class="main"><div class="title">${esc(p.name)}</div><div class="sub">${fmt(p.age)} tuổi${p.sect ? ` · ${esc(sectDef(p.sect)?.name ?? "")}` : " · tán tu"}</div></div>
+                  <div class="realm" style="--hue:${HUES[p.realm] ?? 45}">${esc(realmName(p.realm))}</div></div>`,
+              )
+              .join("")}</div>`
+          : `<div class="empty">Chưa ai luân hồi vào giới này.</div>`
+      }
+      <p class="muted small">Thế lực môn phái = tổng (cảnh giới + 1)² của kiếp tốt nhất mỗi đệ tử. Số liệu cập nhật mỗi phút.</p>
+    </section>`;
+  }
 }
 
 // Chỉ khi chạy local: cho phép gọi thử các cảnh đột phá từ console để xem hiệu ứng

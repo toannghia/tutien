@@ -70,6 +70,18 @@ export const PATHS = [
     perk: "Đột phá dễ hơn 3%. Mỗi câu trả lời đúng: +2 ngộ tính.",
     reward: { comprehension: 2 },
   },
+  {
+    id: "phat", name: "Phật tu", glyph: "佛",
+    desc: "Lấy từ bi và trí tuệ làm gốc. Khảo hạch về Phật giáo phổ thông: cuộc đời Đức Phật, Tam Bảo, Ngũ giới, lễ hội, chùa chiền.",
+    perk: "Từ bi hộ thân: thương tích nhận vào giảm 10%. Mỗi câu trả lời đúng: +10 thể trạng.",
+    reward: { health: 10 },
+  },
+  {
+    id: "tieudao", name: "Tiêu Dao", glyph: "遙",
+    desc: "Sống như người thường, vui là chính. Không có câu chuyên môn — chỉ đố vui đời sống, Tết, món ăn, tục ngữ, cổ tích.",
+    perk: "Sống vui sống khỏe: thể trạng hồi nhanh hơn 20%. Mỗi câu trả lời đúng: +1 khí vận, +10 linh tài.",
+    reward: { luck: 1, resources: 10 },
+  },
 ] as const;
 
 // Tên gọi: họ chung, tên theo giới tính
@@ -89,6 +101,36 @@ export const WORLDS = [
   { id: "blood", name: "Huyết Sát Giới", danger: 1.6, fortune: 1.0, desc: "Ma đạo thịnh hành, kẻ yếu khó sống sót." },
   { id: "shattered", name: "Tàn Thiên Giới", danger: 1.4, fortune: 0.9, desc: "Thiên địa rạn vỡ, không gian bất ổn, mất mạng chỉ trong chớp mắt." },
 ];
+
+// Môn phái: mỗi giới diện 3 phái. Được tông môn nhận thì vào một phái của giới mình.
+export const SECTS = (
+  [
+    ["thanhvan", "peaceful", "Thanh Vân Tông", "劍", "Kiếm tu chính đạo, môn quy nghiêm minh."],
+    ["bachthao", "peaceful", "Bách Thảo Cốc", "藥", "Thung lũng trăm loài linh thảo, giỏi luyện đan."],
+    ["vanha", "peaceful", "Vân Hà Thư Viện", "書", "Thư viện trên mây, trọng kinh điển và luận đạo."],
+    ["linhtieu", "abundant", "Linh Tiêu Bảo Điện", "霄", "Điện các trên linh mạch lớn nhất giới."],
+    ["vanlinh", "abundant", "Vạn Linh Tông", "靈", "Thu nhận vạn loại linh căn, đệ tử đông đảo."],
+    ["tutruc", "abundant", "Tử Trúc Lâm", "竹", "Rừng trúc tím, tu tâm dưỡng tính."],
+    ["thienkiem", "turmoil", "Thiên Kiếm Môn", "鋒", "Lấy chiến dưỡng chiến, kiếm ra là thấy máu."],
+    ["chienthan", "turmoil", "Chiến Thần Điện", "戰", "Luyện thể thành thần, trăm trận không lui."],
+    ["huyenco", "turmoil", "Huyền Cơ Các", "機", "Tinh thông trận pháp và cơ quan thuật."],
+    ["manhoang", "wild", "Man Hoang Bộ", "蠻", "Bộ tộc hoang dã, thân thể cứng như sắt."],
+    ["ngthu", "wild", "Ngự Thú Tông", "獸", "Thuần phục yêu thú làm bạn chiến đấu."],
+    ["huyetlang", "wild", "Huyết Lang Trại", "狼", "Sơn trại giữa rừng sâu, sống bằng săn yêu."],
+    ["codao", "declining", "Cổ Đạo Quan", "觀", "Đạo quán cổ giữ lửa tu hành thời mạt pháp."],
+    ["tannguyet", "declining", "Tàn Nguyệt Am", "月", "Am nhỏ dưới vầng trăng khuyết, tu tịnh pháp."],
+    ["thukinh", "declining", "Thủ Kinh Các", "經", "Canh giữ kinh thư thượng cổ còn sót lại."],
+    ["antien", "hidden", "Ẩn Tiên Cốc", "隱", "Thung lũng ẩn trong mây, ít khi lộ diện."],
+    ["bonglai", "hidden", "Bồng Lai Đảo", "島", "Tiên đảo ngoài biển khơi, đầy cơ duyên."],
+    ["tieudao", "hidden", "Tiêu Dao Phái", "遙", "Tự tại tiêu dao, không màng thế sự."],
+    ["huyetma", "blood", "Huyết Ma Giáo", "魔", "Ma giáo hùng mạnh nhất, lấy huyết luyện công."],
+    ["uminh", "blood", "U Minh Điện", "冥", "Điện thờ u minh, tu quỷ đạo."],
+    ["chinhkhi", "blood", "Chính Khí Minh", "義", "Liên minh chính đạo cuối cùng chống ma."],
+    ["bothien", "shattered", "Bổ Thiên Các", "補", "Thề vá lại bầu trời rạn vỡ."],
+    ["hukhong", "shattered", "Hư Không Tự", "空", "Ngôi chùa trôi giữa các mảnh không gian."],
+    ["tinhha", "shattered", "Tinh Hà Kiếm Phái", "星", "Kiếm khí như dải ngân hà, chém nát hư không."],
+  ] as const
+).map(([id, world, name, glyph, desc]) => ({ id, world, name, glyph, desc }));
 
 export type AchievementCtx = { realm: number; age: number; flags: string[]; endingReason: string; ascended: boolean; died: boolean; rootless: boolean };
 

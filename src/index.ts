@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { createAuth, GUEST_NAME, type Env } from "./auth";
-import { ACHIEVEMENTS, ORIGINS, PATHS, PHYSIQUES, REALMS, ROOTS, WORLDS } from "./game/data";
+import { ACHIEVEMENTS, ORIGINS, PATHS, PHYSIQUES, REALMS, ROOTS, SECTS, WORLDS } from "./game/data";
 import { BANKS } from "./game/quiz";
 import { DUEL, type Fighter } from "./duel/logic";
 
@@ -28,6 +28,7 @@ app.get("/api/codex", (c) =>
     paths: PATHS.map(({ id, name, glyph, desc, perk }) => ({ id, name, glyph, desc, perk, questions: BANKS[id].length })),
     origins: ORIGINS.map(({ id, name, resources, sect }) => ({ id, name, resources, sect })),
     worlds: WORLDS,
+    sects: SECTS,
     achievements: ACHIEVEMENTS.map(({ id, name, desc }) => ({ id, name, desc })),
     google: !!(c.env.GOOGLE_CLIENT_ID && c.env.GOOGLE_CLIENT_SECRET),
   }),
@@ -172,6 +173,86 @@ app.get("/api/leaderboard", async (c) => {
   return c.json(results.map(({ user_id, isAnonymous, ...r }) => ({ ...r, name: isAnonymous ? GUEST_NAME : r.name, userId: user_id })));
 });
 
+// ---------------------------------------------------------------- Bản đồ thế giới
+
+// Công khai, cache 60 giây ở edge. Mỗi người chỉ tính kiếp tốt nhất khi xếp hạng.
+app.get("/api/world", async (c) => {
+  const cache = caches.default;
+  const key = new Request(new URL("/api/world?v=1", c.req.url).toString());
+  const hit = await cache.match(key);
+  if (hit) return hit;
+  const db = c.env.DB;
+  const name = (r: { name: string; isAnonymous: number | null }) => (r.isAnonymous ? GUEST_NAME : r.name);
+  const [totals, worlds, worldTop, sects, sectTop] = await db.batch([
+    db.prepare(`SELECT COUNT(DISTINCT user_id) AS players, COUNT(*) AS lives, SUM(status = 'active') AS active FROM runs`),
+    db.prepare(
+      `SELECT world, COUNT(DISTINCT user_id) AS players, COUNT(*) AS lives, SUM(status = 'active') AS active,
+              CAST(AVG(CASE WHEN status = 'finished' THEN age END) AS INTEGER) AS avg_age, MAX(age) AS max_age, MAX(best_realm) AS top_realm
+       FROM runs GROUP BY world`,
+    ),
+    db.prepare(
+      `SELECT world, name, isAnonymous, best_realm, age, sect_id FROM (
+         SELECT r.world, u.name, u.isAnonymous, r.best_realm, r.age, r.sect_id,
+                ROW_NUMBER() OVER (PARTITION BY r.world ORDER BY r.best_realm DESC, r.age DESC) AS rn
+         FROM runs r JOIN "user" u ON u.id = r.user_id) WHERE rn <= 3`,
+    ),
+    db.prepare(
+      `WITH best AS (
+         SELECT sect_id, user_id, MAX(best_realm) AS realm, MAX(sect_rank = 'elder') AS elder
+         FROM runs WHERE sect_id IS NOT NULL AND sect_rank IN ('member', 'elder') GROUP BY sect_id, user_id)
+       SELECT sect_id, COUNT(*) AS members, SUM(elder) AS elders, SUM((realm + 1) * (realm + 1)) AS power, MAX(realm) AS top_realm
+       FROM best GROUP BY sect_id`,
+    ),
+    db.prepare(
+      `SELECT sect_id, name, isAnonymous, best_realm, age, sect_rank FROM (
+         SELECT r.sect_id, u.name, u.isAnonymous, r.best_realm, r.age, r.sect_rank,
+                ROW_NUMBER() OVER (PARTITION BY r.sect_id ORDER BY r.best_realm DESC, r.age DESC) AS rn
+         FROM runs r JOIN "user" u ON u.id = r.user_id
+         WHERE r.sect_id IS NOT NULL AND r.sect_rank IN ('member', 'elder')) WHERE rn = 1`,
+    ),
+  ]);
+  type Row = Record<string, unknown>;
+  const rows = (r: D1Result) => r.results as Row[];
+  const sectStats = new Map(rows(sects).map((r) => [r.sect_id as string, r]));
+  const sectLead = new Map(rows(sectTop).map((r) => [r.sect_id as string, r]));
+  const worldStats = new Map(rows(worlds).map((r) => [r.world as string, r]));
+  const body = {
+    totals: rows(totals)[0] ?? { players: 0, lives: 0, active: 0 },
+    worlds: WORLDS.map((w) => {
+      const st = worldStats.get(w.id) ?? {};
+      return {
+        id: w.id,
+        players: st.players ?? 0,
+        lives: st.lives ?? 0,
+        active: st.active ?? 0,
+        avgAge: st.avg_age ?? null,
+        maxAge: st.max_age ?? null,
+        topRealm: st.top_realm ?? null,
+        top: rows(worldTop)
+          .filter((r) => r.world === w.id)
+          .map((r) => ({ name: name(r as { name: string; isAnonymous: number }), realm: r.best_realm, age: r.age, sect: r.sect_id })),
+        sects: SECTS.filter((x) => x.world === w.id)
+          .map((x) => {
+            const st = sectStats.get(x.id);
+            const lead = sectLead.get(x.id);
+            return {
+              id: x.id,
+              members: st?.members ?? 0,
+              elders: st?.elders ?? 0,
+              power: st?.power ?? 0,
+              topRealm: st?.top_realm ?? null,
+              leader: lead ? { name: name(lead as { name: string; isAnonymous: number }), realm: lead.best_realm, age: lead.age, rank: lead.sect_rank } : null,
+            };
+          })
+          .sort((a, b) => Number(b.power) - Number(a.power)),
+      };
+    }),
+  };
+  const res = new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=60" } });
+  c.executionCtx.waitUntil(cache.put(key, res.clone()));
+  return res;
+});
+
 // ---------------------------------------------------------------- Luận đạo (đấu trực tiếp)
 
 async function sessionUser(c: { env: Env; req: { raw: Request } }) {
@@ -283,8 +364,8 @@ async function saveProgress(db: D1Database, runId: string, userId: string, s: Ru
     all = [...had, ...unlocked];
   }
   const stmts = [
-    db.prepare("UPDATE runs SET best_realm = ?, age = ?, status = ?, ending_reason = ?, ended_at = ? WHERE id = ? AND status = 'active'")
-      .bind(s.realm, s.age, finished ? "finished" : "active", s.endingReason, finished ? Date.now() : null, runId),
+    db.prepare("UPDATE runs SET best_realm = ?, age = ?, status = ?, ending_reason = ?, ended_at = ?, sect_id = ?, sect_rank = ?, path = ? WHERE id = ? AND status = 'active'")
+      .bind(s.realm, s.age, finished ? "finished" : "active", s.endingReason, finished ? Date.now() : null, s.sectId, s.sectId && s.sect !== "none" ? s.sect : null, s.path, runId),
   ];
   if (finished) {
     stmts.push(

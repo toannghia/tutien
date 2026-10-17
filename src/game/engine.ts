@@ -1,7 +1,7 @@
 // Engine mô phỏng tất định: cùng seed + profile + danh sách lựa chọn → luôn ra cùng một kiếp.
 // Máy chủ không tin client: nó chỉ nhận lựa chọn rồi tự dựng lại trạng thái bằng replay().
 
-import { ACHIEVEMENTS, GIVEN_NAMES, ORIGINS, PATHS, PHYSIQUES, REALMS, ROOTS, SURNAMES, WORLDS } from "./data";
+import { ACHIEVEMENTS, GIVEN_NAMES, ORIGINS, PATHS, PHYSIQUES, REALMS, ROOTS, SECTS, SURNAMES, WORLDS } from "./data";
 import { BANKS, type Question } from "./quiz";
 import { EVENTS } from "./events";
 import type { Choice, Condition, Effects, GameEvent, Outcome, PartnerStatus, SectStatus, Trial } from "./types";
@@ -118,6 +118,7 @@ export type FactStat = {
   sc: SectStatus;
   pt: PartnerStatus;
   pa: string | null; // đạo đồ
+  si: string | null; // môn phái
 };
 
 export type BreakFactor = { label: string; value: number }; // value: điểm phần trăm (+/−)
@@ -168,6 +169,7 @@ export type RunState = {
   luck: number;
   comprehension: number;
   sect: SectStatus;
+  sectId: string | null; // môn phái cụ thể (giữ cả khi bị trục xuất)
   partner: PartnerStatus;
   path: string | null;
   quiz: { correct: number; total: number; bestStreak: number };
@@ -223,6 +225,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
     endingReason: null as string | null,
     ascended: false,
     path: null as string | null,
+    sectId: null as string | null,
     asked: new Set<string>(), // câu hỏi đã gặp trong kiếp này
     quizCorrect: 0,
     quizTotal: 0,
@@ -250,6 +253,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
       sc: s.sect,
       pt: s.partner,
       pa: s.path,
+      si: s.sectId,
     };
   };
   const log = (title: string, text: string, kind: FactKind, extra: Partial<Fact> = {}) => {
@@ -282,7 +286,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
       d.cultivation = e.cultivation;
     }
     if (e.health) {
-      const v = e.health < 0 ? Math.round(e.health * body.guard) : e.health;
+      const v = e.health < 0 ? Math.round(e.health * body.guard * (s.path === "phat" ? 0.9 : 1)) : e.health;
       const before = s.health;
       s.health = Math.max(0, Math.min(100, s.health + v));
       d.health = Math.round(s.health - before);
@@ -305,7 +309,14 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
       s.lifespan += e.lifespan;
       d.lifespan = e.lifespan;
     }
-    if (e.sect) s.sect = e.sect;
+    if (e.sect) {
+      s.sect = e.sect;
+      if (e.sect === "member" && !s.sectId) {
+        s.sectId = pickSect();
+        const last = s.facts[s.facts.length - 1];
+        if (last) last.text += ` Tông môn của ngươi: ${sectName(s.sectId)}.`;
+      }
+    }
     if (e.partner) s.partner = e.partner;
     if (e.flag) s.flags.add(e.flag);
     if (e.flag === "root_awakened" && s.rootScore === 0) s.rootScore = ROOTS[1].score;
@@ -333,6 +344,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
       luck: s.luck,
       comprehension: s.comprehension,
       sect: s.sect,
+      sectId: s.sectId,
       partner: s.partner,
       path: s.path,
       quiz: { correct: s.quizCorrect, total: s.quizTotal, bestStreak: s.bestStreak },
@@ -359,7 +371,12 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
     return c.choiceId;
   };
 
-  log("Một sinh mệnh mới", origin.text + ` Nơi ngươi chào đời thuộc ${world.name}.`, "birth");
+  if (s.sect === "member") s.sectId = pickSect();
+  log(
+    "Một sinh mệnh mới",
+    origin.text + ` Nơi ngươi chào đời thuộc ${world.name}.` + (s.sectId ? ` Sơn môn ấy là ${sectName(s.sectId)}.` : ""),
+    "birth",
+  );
 
   try {
     simulate();
@@ -376,7 +393,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
     if (s.endingReason) return;
 
     s.age += tickYears(s.realm) * rng.int(1, 3);
-    s.health = Math.min(100, s.health + 4 * body.regen);
+    s.health = Math.min(100, s.health + 4 * body.regen * (s.path === "tieudao" ? 1.2 : 1));
 
     if (s.age >= s.lifespan) {
       s.age = s.lifespan;
@@ -607,6 +624,17 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
     s.facts[at].delta = apply({ health: -35 });
     if (s.endingReason) s.endingReason = "Đột phá thất bại, kinh mạch đứt đoạn";
     return pick;
+  }
+
+  // Chọn phái trong giới diện theo seed + thời điểm, không dùng rng (để không làm lệch các kiếp đang dở)
+  function pickSect() {
+    const list = SECTS.filter((x) => x.world === world.id);
+    const h = Math.imul((seed ^ (s.tick + 1) * 0x9e3779b1) >>> 0, 0x85ebca6b) >>> 0;
+    return list[h % list.length].id;
+  }
+
+  function sectName(id: string | null) {
+    return SECTS.find((x) => x.id === id)?.name ?? "";
   }
 
   function failReason(p: number, tribulation: boolean, strikes: number) {

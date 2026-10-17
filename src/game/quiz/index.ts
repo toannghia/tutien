@@ -1,12 +1,14 @@
 import { DAOLUAN } from "./daoluan";
 import { DICH } from "./dich";
 import { NGUHANH } from "./nguhanh";
+import { PHAT } from "./phat";
+import { TIEUDAO } from "./tieudao";
 import type { Question } from "./types";
 
 export type { Question } from "./types";
 
 // Ngân hàng câu hỏi theo đạo đồ (id khớp PATHS trong data.ts)
-export const BANKS: Record<string, Question[]> = { nguhanh: NGUHANH, dich: DICH, daoluan: DAOLUAN };
+export const BANKS: Record<string, Question[]> = { nguhanh: NGUHANH, dich: DICH, daoluan: DAOLUAN, phat: PHAT, tieudao: TIEUDAO };
 
 // Kiểm tra sớm: id trùng, đáp án trùng nhau trong một câu
 for (const [bank, list] of Object.entries(BANKS)) {

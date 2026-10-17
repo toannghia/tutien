@@ -261,6 +261,41 @@ nav.links a.active, nav.links a:hover { background: var(--bg-2); color: var(--in
 .fact details.explain { font-size: 13px; color: var(--muted); margin-top: 4px; }
 .fact details.explain summary { cursor: pointer; color: var(--ink-2); }
 
+/* ---------- Bản đồ ---------- */
+.world-map { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 18px 0; padding: 14px; border-radius: 12px; border: 1px solid var(--line);
+  background: radial-gradient(60% 80% at 20% 30%, color-mix(in srgb, var(--gold) 10%, transparent), transparent), radial-gradient(50% 70% at 80% 70%, color-mix(in srgb, var(--good) 10%, transparent), transparent), var(--panel); }
+.world-tile { display: grid; justify-items: center; gap: 2px; padding: 14px 6px 12px; border-radius: 10px; cursor: pointer; text-align: center;
+  border: 1px solid color-mix(in srgb, hsl(var(--hue) 40% 50%) 45%, var(--line)); background: color-mix(in srgb, hsl(var(--hue) 40% 45%) 10%, var(--bg)); color: var(--ink); transition: transform .15s ease; }
+.world-tile:hover { transform: translateY(-2px); }
+.world-tile.on { border-color: hsl(var(--hue) 50% 55%); box-shadow: 0 0 0 2px color-mix(in srgb, hsl(var(--hue) 50% 55%) 40%, transparent); background: color-mix(in srgb, hsl(var(--hue) 40% 45%) 22%, var(--bg)); }
+.wglyph { font-family: var(--serif); font-size: 30px; line-height: 1.1; color: hsl(var(--hue) 45% 55%); }
+.wglyph.big { font-size: 46px; }
+.wname { font-family: var(--serif); font-size: 15px; }
+.wstat { font-size: 12px; color: var(--muted); }
+.wstat b { color: var(--ink); }
+.live { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--good); margin: 0 3px 1px 2px; animation: pulse 1.6s ease-in-out infinite; }
+.world-detail { border: 1px solid color-mix(in srgb, hsl(var(--hue) 40% 50%) 40%, var(--line)); border-radius: 12px; padding: 18px; background: var(--panel); animation: rise .3s ease; }
+.world-detail h3 { margin: 18px 0 8px; font-size: 18px; }
+.wd-head { display: flex; gap: 14px; align-items: center; }
+.wd-head h2 { font-size: 26px; }
+.wd-stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; margin-top: 14px; }
+.wd-stats > div { border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; background: var(--bg); }
+.wd-stats small { display: block; font-size: 11px; color: var(--muted); }
+.wd-stats b { font-family: var(--serif); font-weight: 500; font-size: 18px; }
+.sect-row { display: grid; grid-template-columns: 28px 40px 1fr auto; gap: 10px; align-items: start; padding: 12px 4px; border-bottom: 1px solid var(--line); }
+.sect-rank { font-family: var(--serif); font-size: 20px; color: var(--muted); text-align: center; }
+.sect-rank.first { color: var(--gold); }
+.sglyph { font-family: var(--serif); font-size: 28px; color: hsl(var(--hue) 45% 55%); text-align: center; }
+.sect-row .title { font-family: var(--serif); font-size: 17px; }
+.sect-row .sub { font-size: 13px; color: var(--muted); }
+.sect-row .leader b { color: var(--ink); }
+.crown { font-family: var(--sans); font-size: 11px; color: var(--gold); border: 1px solid var(--gold); border-radius: 99px; padding: 0 7px; vertical-align: middle; }
+.power { height: 5px; background: var(--bg-2); border-radius: 3px; overflow: hidden; margin: 6px 0; max-width: 360px; }
+.power i { display: block; height: 100%; background: hsl(var(--hue) 45% 50%); }
+.sect-power { text-align: right; }
+.sect-power b { display: block; font-family: var(--serif); font-size: 20px; font-weight: 500; }
+.sect-power small { color: var(--muted); font-size: 11px; }
+
 /* ---------- Mời bạn ---------- */
 .friend-box { border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 8px 0 20px; background: var(--panel); }
 .friend-box h3 { font-size: 18px; }
@@ -527,6 +562,11 @@ button, a, .option { touch-action: manipulation; -webkit-tap-highlight-color: tr
   .fighter .line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fighter .fname { font-size: 15px; }
   .duel-score { font-size: 24px; }
+  .world-map { grid-template-columns: repeat(2, 1fr); padding: 10px; gap: 8px; }
+  .wd-stats { grid-template-columns: repeat(3, 1fr); }
+  .sect-row { grid-template-columns: 22px 30px 1fr; }
+  .sect-power { grid-column: 3; text-align: left; display: flex; gap: 6px; align-items: baseline; }
+  .sect-power b { display: inline; font-size: 16px; }
   .invite-code span { width: 42px; height: 52px; font-size: 26px; }
   .bt-glyph { font-size: 44px; }
   .bt-ring { width: 116px; height: 116px; }
