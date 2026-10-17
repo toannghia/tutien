@@ -41,6 +41,21 @@ Game mô phỏng một đời tu tiên. Chạy trên Cloudflare Workers + D1, d�
 - **Đạo vị (Elo, K = 32)** chỉ áp dụng cho tài khoản đã đăng ký. Khách được đấu thử nhưng không được tính điểm. Bậc danh hiệu: Sơ học → Nhập thất → Chân truyền → Tông sư → Đạo tôn.
 - **Deploy:** Durable Objects được tạo tự động khi `wrangler deploy` (migration `v1` trong `wrangler.jsonc`). Chạy thêm `npm run db:migrate:remote` để tạo bảng `ratings`, `duels`.
 
+## Bản đồ vạn giới
+
+`/#/world`: mỗi giới diện có số tu sĩ, số kiếp, số người đang tu hành, tuổi thọ trung bình và cao nhất, cùng cao thủ của giới. Mỗi giới có 3 môn phái, xếp hạng theo thế lực = tổng (cảnh giới + 1)² của kiếp tốt nhất mỗi đệ tử, và hiện người mạnh nhất mỗi phái. API `/api/world` được cache 60 giây.
+
+## Quản trị
+
+`/#/admin` chỉ dành cho tài khoản **đã đăng ký** có email nằm trong `ADMIN_EMAILS` (`wrangler.jsonc`; khi chạy local thì đặt trong `.dev.vars`).
+
+- **Báo cáo:** người chơi (đăng ký/khách), số người hoạt động trong 24 giờ / 7 ngày / 30 ngày, biểu đồ theo ngày (người hoạt động, người mới, kiếp mới, trận luận đạo), phân bố cảnh giới / giới diện / đạo đồ / kết cục, và cao thủ.
+- **Cấu hình chỉ số** (`src/settings.ts`), gồm 3 nhóm:
+  - lối chơi: tốc độ tu luyện, tần suất sự kiện, cộng tỉ lệ đột phá, tỉ lệ vong mạng khi độ kiếp, thưởng câu đúng, ngưỡng bảo hiểm;
+  - luận đạo: số câu, thời gian mỗi câu, thời gian chờ bot, hệ số Elo, nhãn bot;
+  - hệ thống: số ngày giữ tài khoản khách.
+- Cấu hình lối chơi được **chụp vào mỗi kiếp lúc tạo**, nên đổi chỉ số chỉ ảnh hưởng kiếp mới; các kiếp đang chơi vẫn phát lại đúng.
+
 ## Thêm nội dung
 
 Mỗi sự kiện được khai báo bằng `ev(id, tiêu đề, mô tả, [cảnh giới min, max], { weight, maxPerLife, cooldown, cond, effects | choices })`. Hiệu ứng `resources` tự nhân theo cảnh giới. Sau khi thêm hoặc sửa sự kiện, chạy:

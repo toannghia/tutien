@@ -5,7 +5,15 @@
 //  - join:  vào phòng của bạn bằng mã → trận giao hữu (không tính Đạo vị)
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "../auth";
-import { botWaitMs, makeBot, newRoomCode, normalizeCode, ratingWindow, ROOM_CODE_TTL_MS, type Fighter } from "./logic";
+import { getSettings, type Settings } from "../settings";
+import { botWaitMs, makeBot, newRoomCode, normalizeCode, ratingWindow, ROOM_CODE_TTL_MS, type DuelConfig, type Fighter } from "./logic";
+
+const duelConfigOf = (s: Settings): DuelConfig => ({
+  questions: Number(s.duelQuestions),
+  answerMs: Number(s.duelAnswerSec) * 1000,
+  k: Number(s.eloK),
+  botLabel: Boolean(s.botLabel),
+});
 
 type Mode = "queue" | "host";
 type Ticket = Fighter & { mode: Mode; joinedAt: number; botAt: number; code?: string; expiresAt?: number; done?: boolean };
@@ -17,6 +25,7 @@ export class Matchmaker extends DurableObject<Env> {
     const me = JSON.parse(req.headers.get("X-Fighter") ?? "null") as Fighter | null;
     if (!me || req.headers.get("Upgrade") !== "websocket") return new Response("Bad request", { status: 400 });
     const mode = (req.headers.get("X-Mode") ?? "queue") as Mode | "join";
+    const settings = await getSettings(this.env.DB);
 
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
@@ -49,7 +58,7 @@ export class Matchmaker extends DurableObject<Env> {
       server.serializeAttachment({ ...me, mode: "host", code, expiresAt, joinedAt: now, botAt: Infinity } satisfies Ticket);
       server.send(JSON.stringify({ type: "hosting", code, expiresAt, now }));
     } else {
-      server.serializeAttachment({ ...me, mode: "queue", joinedAt: now, botAt: now + botWaitMs() } satisfies Ticket);
+      server.serializeAttachment({ ...me, mode: "queue", joinedAt: now, botAt: now + botWaitMs(Math.random, Number(settings.botWaitMin), Number(settings.botWaitMax)) } satisfies Ticket);
       server.send(JSON.stringify({ type: "queued", waiting: this.tickets("queue").length }));
       await this.tryMatch();
     }
@@ -137,7 +146,8 @@ export class Matchmaker extends DurableObject<Env> {
     for (const h of humans) h.ws.serializeAttachment({ ...h.t, done: true });
 
     const id = this.env.DUEL_ROOM.newUniqueId();
-    await this.env.DUEL_ROOM.get(id).fetch("https://room/init", { method: "POST", body: JSON.stringify({ roomId: id.toString(), fighters, friendly }) });
+    const cfg = duelConfigOf(await getSettings(this.env.DB));
+    await this.env.DUEL_ROOM.get(id).fetch("https://room/init", { method: "POST", body: JSON.stringify({ roomId: id.toString(), fighters, friendly, cfg }) });
     for (const h of humans) {
       try {
         h.ws.send(JSON.stringify({ type: "matched", roomId: id.toString(), friendly }));

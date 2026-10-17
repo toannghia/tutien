@@ -4,6 +4,9 @@ import { ACHIEVEMENTS, ORIGINS, PATHS, PHYSIQUES, REALMS, ROOTS, SECTS, WORLDS }
 import { BANKS } from "./game/quiz";
 import { DUEL, type Fighter } from "./duel/logic";
 
+import { admin, isAdmin } from "./admin";
+import { gameConfigOf, getSettings } from "./settings";
+
 export { Matchmaker } from "./duel/matchmaker";
 export { DuelRoom } from "./duel/room";
 import { createProfile, InvalidChoiceError, replay, type ChoiceInput, type Profile, type RunState } from "./game/engine";
@@ -12,7 +15,6 @@ type User = { id: string; name: string; email: string; isAnonymous?: boolean | n
 type Vars = { user: User };
 type RunRow = { id: string; user_id: string; number: number; seed: number; world: string; profile_json: string; status: string };
 
-const GUEST_TTL_DAYS = 90;
 
 const app = new Hono<{ Bindings: Env; Variables: Vars }>();
 
@@ -52,6 +54,7 @@ app.get("/api/game/me", async (c) => {
     name: user.name,
     email: user.isAnonymous ? null : user.email,
     isGuest: !!user.isAnonymous,
+    isAdmin: isAdmin(c.env, user),
     stats: { best_realm: stats?.best_realm ?? 0, longest_age: stats?.longest_age ?? 0, total_runs: stats?.total_runs ?? 0 },
     achievements: JSON.parse(stats?.achievements_json ?? "[]") as string[],
   });
@@ -65,7 +68,9 @@ app.post("/api/game/runs", async (c) => {
   const last = await db.prepare("SELECT COALESCE(MAX(number), 0) AS n FROM runs WHERE user_id = ?").bind(user.id).first<{ n: number }>();
 
   const seed = crypto.getRandomValues(new Uint32Array(1))[0];
-  const profile = createProfile(seed, stats?.pity_count ?? 0);
+  // Chụp cấu hình hiện tại vào kiếp: admin đổi chỉ số sau này không ảnh hưởng kiếp đang chơi
+  const settings = await getSettings(db);
+  const profile = createProfile(seed, stats?.pity_count ?? 0, gameConfigOf(settings), Number(settings.pityLimit));
   const state = replay(seed, profile, []);
   const id = crypto.randomUUID();
   const now = Date.now();
@@ -172,6 +177,8 @@ app.get("/api/leaderboard", async (c) => {
   ).all<{ name: string; isAnonymous: number; user_id: string }>();
   return c.json(results.map(({ user_id, isAnonymous, ...r }) => ({ ...r, name: isAnonymous ? GUEST_NAME : r.name, userId: user_id })));
 });
+
+app.route("/api/admin", admin);
 
 // ---------------------------------------------------------------- Bản đồ thế giới
 
@@ -386,7 +393,8 @@ export default {
   // Dọn tài khoản khách không hoạt động quá 90 ngày (kiếp, thống kê, phiên bị xoá theo ON DELETE CASCADE)
   async scheduled(_event: ScheduledController, env: Env) {
     // Better Auth lưu ngày dạng chuỗi ISO trên D1 → so sánh chuỗi
-    const cutoff = new Date(Date.now() - GUEST_TTL_DAYS * 86_400_000).toISOString();
+    const ttlDays = Number((await getSettings(env.DB)).guestTtlDays);
+    const cutoff = new Date(Date.now() - ttlDays * 86_400_000).toISOString();
     await env.DB.prepare(
       `DELETE FROM "user" WHERE isAnonymous = 1 AND createdAt < ?1
        AND NOT EXISTS (SELECT 1 FROM session s WHERE s.userId = "user".id AND s.updatedAt >= ?1)`,

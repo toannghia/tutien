@@ -30,6 +30,8 @@
     "BETTER_AUTH_URL": "https://tutien.tamnguyen.com", // tên miền chính; local ghi đè trong .dev.vars
     "TRUSTED_ORIGINS": "https://tutien.tamnguyen.com,https://tutien.nghia-code.workers.dev",
     // "1" = hiện nhãn "Tàn ảnh" cho đối thủ là bot; "0" = bot trông như người thật
-    "DUEL_BOT_LABEL": "0"
+    "DUEL_BOT_LABEL": "0",
+    // Email tài khoản (đã đăng ký trong game) được vào trang /#/admin
+    "ADMIN_EMAILS": "nghia.code@gmail.com"
   }
 }

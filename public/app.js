@@ -100,6 +100,9 @@ async function boot() {
 
 async function refreshMe() {
   app.me = await api("/api/game/me");
+  // Liên kết trang quản trị chỉ hiện với admin
+  document.querySelector('nav.links a[data-route="admin"]')?.remove();
+  if (app.me.isAdmin) document.querySelector("nav.links")?.insertAdjacentHTML("beforeend", `<a href="#/admin" data-route="admin">Quản trị</a>`);
   const chip = document.getElementById("accountChip");
   chip.classList.toggle("guest", app.me.isGuest);
   chip.innerHTML = `<span class="avatar">${esc((app.me.isGuest ? "客" : app.me.name)[0])}</span><span class="name">${
@@ -122,6 +125,7 @@ function route() {
   window.scrollTo(0, 0);
   closeDuel();
   const pages = { "": renderHome, play: renderPlay, world: () => renderWorld(),
+    admin: () => renderAdmin(),
     duel: arg === "join" ? () => Promise.resolve(joinRoom(arg2)) : renderDuel, history: arg ? () => renderHistoryDetail(arg) : renderHistory, rank: renderRank, codex: renderCodex };
   (pages[name] ?? renderHome)().catch((e) => ($view.innerHTML = `<div class="empty">${esc(e.message)}</div>`));
 }
@@ -1101,7 +1105,8 @@ function openAccount() {
       <h2>${esc(app.me.name)}</h2><p class="muted">${esc(app.me.email)}</p>
       <div class="field"><label>Đạo hiệu</label><input id="newName" value="${esc(app.me.name)}" maxlength="32"/></div>
       <p class="err" id="accErr"></p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="rename">Lưu đạo hiệu</button><button class="btn ghost" id="signout">Đăng xuất</button></div></div>`);
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="rename">Lưu đạo hiệu</button><button class="btn ghost" id="signout">Đăng xuất</button>${app.me.isAdmin ? `<a class="btn ghost" href="#/admin" id="toAdmin">Trang quản trị</a>` : ""}</div></div>`);
+    m.querySelector("#toAdmin")?.addEventListener("click", closeModal);
     m.querySelector("#rename").onclick = () =>
       guard("#accErr", async () => {
         await api("/api/auth/update-user", { method: "POST", body: { name: m.querySelector("#newName").value.trim() || app.me.name } });
@@ -1552,7 +1557,7 @@ async function showEnd(m) {
   const glyph = { win: "勝", lose: "敗", draw: "和" }[m.result];
   document.getElementById("stage").innerHTML = `<div class="duel-end ${m.result}">
     <div class="glyph">${glyph}</div><h2>${title}</h2>
-    <div class="muted">${m.scores[0]} – ${m.scores[1]} điểm · đúng ${m.correct[0]}/5 câu</div>
+    <div class="muted">${m.scores[0]} – ${m.scores[1]} điểm · đúng ${m.correct[0]}/${duel.q?.total ?? 5} câu</div>
     ${
       m.friendly
         ? `<div class="muted" style="margin:10px 0">Trận giao hữu — không tính Đạo vị.</div>`
@@ -1801,6 +1806,191 @@ async function renderWorld(selected) {
       <p class="muted small">Thế lực môn phái = tổng (cảnh giới + 1)² của kiếp tốt nhất mỗi đệ tử. Số liệu cập nhật mỗi phút.</p>
     </section>`;
   }
+}
+
+// ---------------------------------------------------------------- Quản trị: báo cáo + cấu hình
+
+const ddmm = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+
+// Cột theo ngày, một chuỗi số liệu: 1 màu nhấn, đầu cột bo 4px, khe 2px, lưới mờ, tooltip khi rê, kèm bảng số liệu
+function barChart(title, data, unit) {
+  const W = 600, H = 170, padL = 30, padB = 22, padT = 8;
+  const max = Math.max(1, ...data.map((p) => p.n));
+  // Mốc trục là số nguyên: 0, nửa, đỉnh
+  const nice = max <= 4 ? 4 : Math.ceil(max / 2 / 5) * 10;
+  const bw = (W - padL) / data.length;
+  const y = (v) => padT + (H - padT - padB) * (1 - v / nice);
+  const grid = [0, nice / 2, nice]
+    .map((v) => `<line x1="${padL}" x2="${W}" y1="${y(v)}" y2="${y(v)}" class="grid"/><text x="${padL - 6}" y="${y(v) + 4}" class="axis" text-anchor="end">${fmt(v)}</text>`)
+    .join("");
+  const step = Math.ceil(data.length / 7);
+  const bars = data
+    .map((p, i) => {
+      const x = padL + i * bw + 1;
+      const w = Math.max(2, bw - 2);
+      const top = y(p.n);
+      const h = y(0) - top;
+      const r = Math.min(4, w / 2, h);
+      const path = h > 0 ? `M${x},${y(0)} V${top + r} Q${x},${top} ${x + r},${top} H${x + w - r} Q${x + w},${top} ${x + w},${top + r} V${y(0)} Z` : "";
+      return `<g class="bar" data-tip="${ddmm(p.d)}: ${fmt(p.n)} ${unit}"><rect x="${padL + i * bw}" y="${padT}" width="${bw}" height="${H - padT - padB}" class="hit"/>${path ? `<path d="${path}"/>` : ""}${i % step === 0 ? `<text x="${x + w / 2}" y="${H - 6}" class="axis" text-anchor="middle">${ddmm(p.d)}</text>` : ""}</g>`;
+    })
+    .join("");
+  const total = data.reduce((a, p) => a + p.n, 0);
+  return `<figure class="chart"><figcaption><b>${esc(title)}</b><span class="muted small">Tổng ${fmt(total)} · cao nhất ${fmt(max)}/ngày</span></figcaption>
+    <div class="chart-box"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(title)}">${grid}<line x1="${padL}" x2="${W}" y1="${y(0)}" y2="${y(0)}" class="base"/>${bars}</svg><div class="tip" hidden></div></div>
+    <details class="small"><summary>Xem bảng số liệu</summary><table class="mini"><tr><th>Ngày</th><th>${esc(unit)}</th></tr>${data
+      .map((p) => `<tr><td>${ddmm(p.d)}</td><td>${fmt(p.n)}</td></tr>`)
+      .join("")}</table></details></figure>`;
+}
+
+// Thanh ngang cho phân bố (một chuỗi), nhãn và số dùng màu chữ, thanh mang màu nhấn
+function hbarList(title, rows) {
+  const max = Math.max(1, ...rows.map((r) => r.n));
+  const total = rows.reduce((a, r) => a + r.n, 0);
+  return `<figure class="chart"><figcaption><b>${esc(title)}</b><span class="muted small">${fmt(total)} lượt</span></figcaption>
+    <div class="hbars">${rows
+      .map((r) => `<div class="hrow" title="${esc(r.k)}: ${fmt(r.n)}"><span class="hk">${esc(r.k)}</span><span class="htrack"><i style="width:${(r.n / max) * 100}%"></i></span><span class="hn">${fmt(r.n)}</span></div>`)
+      .join("")}</div></figure>`;
+}
+
+function wireTooltips(root) {
+  root.querySelectorAll(".chart-box").forEach((box) => {
+    const tip = box.querySelector(".tip");
+    box.querySelectorAll(".bar").forEach((g) => {
+      g.addEventListener("mouseenter", () => {
+        tip.textContent = g.dataset.tip;
+        tip.hidden = false;
+        g.classList.add("on");
+      });
+      g.addEventListener("mousemove", (e) => {
+        const r = box.getBoundingClientRect();
+        tip.style.left = `${Math.min(r.width - 120, Math.max(0, e.clientX - r.left - 50))}px`;
+        tip.style.top = `${Math.max(0, e.clientY - r.top - 38)}px`;
+      });
+      g.addEventListener("mouseleave", () => {
+        tip.hidden = true;
+        g.classList.remove("on");
+      });
+      // Chạm trên điện thoại
+      g.addEventListener("click", () => {
+        tip.textContent = g.dataset.tip;
+        tip.hidden = false;
+      });
+    });
+  });
+}
+
+async function renderAdmin(tab = "report", days = Number(store("tt-admin-days") || 14)) {
+  if (!app.me?.isAdmin) {
+    $view.innerHTML = `<div class="page"><h1>Quản trị</h1><div class="empty">Tài khoản này không có quyền quản trị.</div></div>`;
+    return;
+  }
+  $view.innerHTML = `<div class="page admin"><h1>Quản trị</h1>
+    <div class="tabs"><button data-t="report" class="${tab === "report" ? "on" : ""}">Báo cáo</button><button data-t="settings" class="${tab === "settings" ? "on" : ""}">Cấu hình chỉ số</button></div>
+    <div id="adminBody"><div class="empty">Đang tải…</div></div></div>`;
+  $view.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => renderAdmin(b.dataset.t, days)));
+  if (tab === "settings") return renderAdminSettings();
+
+  const r = await api(`/api/admin/report?days=${days}`);
+  const sumDuel = r.series.duelsRanked.map((p, i) => ({ d: p.d, n: p.n + r.series.duelsBot[i].n + r.series.duelsFriendly[i].n }));
+  const tile = (label, value, sub = "") => `<div class="stat"><small>${label}</small><b>${value}</b>${sub ? `<span>${sub}</span>` : ""}</div>`;
+  const body = document.getElementById("adminBody");
+  body.innerHTML = `
+    <div class="range">${[7, 14, 30, 90].map((d) => `<button data-d="${d}" class="${d === days ? "on" : ""}">${d} ngày</button>`).join("")}</div>
+    <div class="stats">
+      ${tile("Người chơi", fmt(r.users.total), `${fmt(r.users.registered)} đăng ký · ${fmt(r.users.guests)} khách`)}
+      ${tile("Hoạt động 24 giờ", fmt(r.active.dau ?? 0))}
+      ${tile("Hoạt động 7 ngày", fmt(r.active.wau ?? 0))}
+      ${tile("Hoạt động 30 ngày", fmt(r.active.mau ?? 0))}
+      ${tile("Tổng kiếp", fmt(r.lives.total ?? 0), `${fmt(r.lives.active ?? 0)} đang chơi · ${fmt(r.lives.finished ?? 0)} đã xong`)}
+      ${tile("Thọ trung bình", r.lives.avg_age ? fmt(r.lives.avg_age) : "—", "kiếp đã khép lại")}
+      ${tile("Luận đạo", fmt((r.duels.ranked ?? 0) + (r.duels.bot ?? 0) + (r.duels.friendly ?? 0)), `${fmt(r.duels.ranked ?? 0)} xếp hạng · ${fmt(r.duels.bot ?? 0)} với bot · ${fmt(r.duels.friendly ?? 0)} giao hữu`)}
+    </div>
+    <div class="charts">
+      ${barChart("Người hoạt động mỗi ngày", r.series.active, "người")}
+      ${barChart("Người chơi mới mỗi ngày", r.series.newUsers, "người")}
+      ${barChart("Kiếp mới mỗi ngày", r.series.lives, "kiếp")}
+      ${barChart("Trận luận đạo mỗi ngày", sumDuel, "trận")}
+    </div>
+    <div class="charts">
+      ${hbarList("Cảnh giới cuối cùng (kiếp đã xong)", r.dist.realms.filter((x) => x.n))}
+      ${hbarList("Giới diện", r.dist.worlds)}
+      ${hbarList("Đạo đồ (kiếp có linh căn)", r.dist.paths.filter((x) => x.n))}
+      ${hbarList("Kết cục phổ biến", r.dist.endings)}
+    </div>
+    <h3>Cao thủ (theo kiếp tốt nhất)</h3>
+    <table class="table"><tr><th>#</th><th>Tu sĩ</th><th>Cảnh giới</th><th>Tuổi</th><th>Số kiếp</th></tr>${r.top
+      .map((t, i) => `<tr><td>${i + 1}</td><td>${esc(t.name)}</td><td>${esc(t.realm ?? "")}</td><td>${fmt(t.age)}</td><td>${fmt(t.lives)}</td></tr>`)
+      .join("")}</table>
+    <p class="muted small">Ngày tính theo giờ Việt Nam. "Hoạt động" = có tạo kiếp, đưa ra lựa chọn hoặc luận đạo trong ngày.</p>`;
+  body.querySelectorAll(".range button").forEach(
+    (b) =>
+      (b.onclick = () => {
+        store("tt-admin-days", b.dataset.d);
+        renderAdmin("report", Number(b.dataset.d));
+      }),
+  );
+  wireTooltips(body);
+}
+
+async function renderAdminSettings() {
+  const s = await api("/api/admin/settings");
+  const groups = { game: "Lối chơi — áp dụng cho kiếp mới", duel: "Luận đạo — áp dụng cho trận mới", system: "Hệ thống — áp dụng ngay" };
+  const field = (spec) => {
+    const v = s.values[spec.key];
+    const meta = s.meta[spec.key];
+    const input =
+      spec.type === "boolean"
+        ? `<label class="switch"><input type="checkbox" name="${spec.key}" ${v ? "checked" : ""}/> <span>${v ? "Bật" : "Tắt"}</span></label>`
+        : `<input type="number" name="${spec.key}" value="${v}" min="${spec.min}" max="${spec.max}" step="${spec.step}"/>`;
+    return `<div class="setting ${v !== s.defaults[spec.key] ? "changed" : ""}">
+      <div><b>${esc(spec.label)}</b><div class="muted small">${esc(spec.help)}</div>
+        <div class="muted small">Mặc định: ${spec.type === "boolean" ? (spec.default ? "Bật" : "Tắt") : spec.default}${spec.type === "number" ? ` · khoảng ${spec.min}–${spec.max}` : ""}${meta ? ` · sửa lúc ${new Date(meta.updated_at).toLocaleString("vi-VN")} bởi ${esc(meta.updated_by ?? "")}` : ""}</div>
+        <div class="err" data-err="${spec.key}"></div></div>
+      <div class="setting-input">${input}</div></div>`;
+  };
+  const body = document.getElementById("adminBody");
+  body.innerHTML = `<form id="settingsForm">
+    ${Object.entries(groups)
+      .map(([g, title]) => `<section class="setting-group"><h3>${title}</h3>${s.specs.filter((x) => x.group === g).map(field).join("")}</section>`)
+      .join("")}
+    <div class="setting-actions"><button class="btn" type="submit">Lưu thay đổi</button><button class="btn ghost" type="button" id="resetDefaults">Khôi phục mặc định</button></div>
+    <p class="muted small">Mỗi kiếp chụp lại cấu hình lúc bắt đầu, nên đổi chỉ số không ảnh hưởng các kiếp đang chơi dở.</p>
+  </form>`;
+  const form = document.getElementById("settingsForm");
+  form.querySelectorAll('input[type="checkbox"]').forEach((c) => c.addEventListener("change", () => (c.nextElementSibling.textContent = c.checked ? "Bật" : "Tắt")));
+  const collect = () =>
+    Object.fromEntries(s.specs.map((spec) => {
+      const el = form.elements[spec.key];
+      return [spec.key, spec.type === "boolean" ? el.checked : Number(el.value)];
+    }));
+  const save = async (values) => {
+    form.querySelectorAll("[data-err]").forEach((e) => (e.textContent = ""));
+    try {
+      await api("/api/admin/settings", { method: "PUT", body: values });
+      toast("Đã lưu cấu hình.");
+      renderAdmin("settings");
+    } catch (e) {
+      toast(e.message);
+    }
+  };
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    const res = await fetch("/api/admin/settings", { method: "PUT", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(collect()) });
+    if (res.ok) {
+      toast("Đã lưu cấu hình.");
+      return renderAdmin("settings");
+    }
+    const data = await res.json().catch(() => ({}));
+    for (const [k, msg] of Object.entries(data.errors ?? {})) {
+      const el = form.querySelector(`[data-err="${k}"]`);
+      if (el) el.textContent = msg;
+    }
+    toast("Có giá trị chưa hợp lệ.");
+  };
+  document.getElementById("resetDefaults").onclick = () => {
+    if (confirm("Đưa mọi chỉ số về mặc định?")) save({ ...s.defaults });
+  };
 }
 
 // Chỉ khi chạy local: cho phép gọi thử các cảnh đột phá từ console để xem hiệu ứng

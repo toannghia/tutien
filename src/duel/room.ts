@@ -3,7 +3,7 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "../auth";
 import { BANKS, type Question } from "../game/quiz";
-import { botAnswer, DUEL, eloDelta, pickDuelQuestions, points, shuffled, winnerOf, type Fighter } from "./logic";
+import { botAnswer, DUEL, DUEL_DEFAULTS, eloDelta, pickDuelQuestions, points, shuffled, winnerOf, type DuelConfig, type Fighter } from "./logic";
 
 type Answer = { choiceId: string | null; ok: boolean; ms: number; points: number };
 type Player = Fighter & { connected: boolean; answers: (Answer | null)[]; score: number; correct: number; delta: number; newRating: number | null };
@@ -20,6 +20,7 @@ type Room = {
   botPlan: { at: number; choiceId: string | null; ms: number } | null;
   createdAt: number;
   friendly?: boolean; // trận mời bạn: giao hữu, không tính Đạo vị
+  cfg?: DuelConfig;
 };
 
 const ALL = new Map(Object.values(BANKS).flat().map((q) => [q.id, q] as const));
@@ -27,6 +28,9 @@ const GRACE_MS = 800; // bù trễ mạng khi nhận câu trả lời sát giờ
 
 export class DuelRoom extends DurableObject<Env> {
   private room: Room | null = null;
+  private get cfg(): DuelConfig {
+    return { ...DUEL_DEFAULTS, ...(this.room?.cfg ?? {}) };
+  }
 
   private async load() {
     this.room ??= (await this.ctx.storage.get<Room>("room")) ?? null;
@@ -66,8 +70,8 @@ export class DuelRoom extends DurableObject<Env> {
     return new Response(null, { status: 101, webSocket: client });
   }
 
-  private async init({ roomId, fighters, friendly = false }: { roomId: string; fighters: Fighter[]; friendly?: boolean }) {
-    const qs = pickDuelQuestions();
+  private async init({ roomId, fighters, friendly = false, cfg = DUEL_DEFAULTS }: { roomId: string; fighters: Fighter[]; friendly?: boolean; cfg?: DuelConfig }) {
+    const qs = pickDuelQuestions(Math.random, cfg.questions);
     const now = Date.now();
     this.room = {
       roomId,
@@ -81,6 +85,7 @@ export class DuelRoom extends DurableObject<Env> {
       botPlan: null,
       createdAt: now,
       friendly,
+      cfg,
     };
     await this.save();
     await this.ctx.storage.setAlarm(this.room.endsAt);
@@ -104,8 +109,8 @@ export class DuelRoom extends DurableObject<Env> {
     const me = room.players[idx];
     if (me.answers[room.index]) return; // mỗi câu chỉ trả lời một lần
     const ms = Date.now() - room.startedAt;
-    if (ms > DUEL.answerMs + GRACE_MS) return;
-    this.record(idx, msg.choiceId ?? null, Math.min(ms, DUEL.answerMs));
+    if (ms > this.cfg.answerMs + GRACE_MS) return;
+    this.record(idx, msg.choiceId ?? null, Math.min(ms, this.cfg.answerMs));
     await this.afterAnswer();
   }
 
@@ -185,10 +190,10 @@ export class DuelRoom extends DurableObject<Env> {
     room.phase = "question";
     room.index = i;
     room.startedAt = now;
-    room.endsAt = now + DUEL.answerMs;
+    room.endsAt = now + this.cfg.answerMs;
     const bot = room.players.find((p) => p.bot);
     if (bot) {
-      const a = botAnswer(question(room, i), bot.rating);
+      const a = botAnswer(question(room, i), bot.rating, Math.random, this.cfg.answerMs);
       room.botPlan = { at: now + a.ms, choiceId: a.choiceId, ms: a.ms };
     }
     this.broadcast(this.questionMsg());
@@ -215,7 +220,7 @@ export class DuelRoom extends DurableObject<Env> {
     const q = question(room, room.index);
     const valid = choiceId !== null && q.options.some((o) => o.id === choiceId);
     const ok = valid && choiceId === q.answer;
-    const pts = points(ok, ms);
+    const pts = points(ok, ms, this.cfg.answerMs);
     room.players[idx].answers[room.index] = { choiceId: valid ? choiceId : null, ok, ms, points: pts };
     room.players[idx].score += pts;
     if (ok) room.players[idx].correct++;
@@ -234,7 +239,7 @@ export class DuelRoom extends DurableObject<Env> {
   private reveal() {
     const room = this.room!;
     const q = question(room, room.index);
-    for (const p of room.players) if (!p.answers[room.index]) p.answers[room.index] = { choiceId: null, ok: false, ms: DUEL.answerMs, points: 0 };
+    for (const p of room.players) if (!p.answers[room.index]) p.answers[room.index] = { choiceId: null, ok: false, ms: this.cfg.answerMs, points: 0 };
     room.phase = "reveal";
     room.botPlan = null;
     room.endsAt = Date.now() + DUEL.revealMs;
@@ -258,25 +263,25 @@ export class DuelRoom extends DurableObject<Env> {
   private async finish() {
     const room = this.room!;
     // Câu chưa tới lượt (người chơi bỏ đi giữa chừng) tính là hết giờ
-    for (const p of room.players) p.answers = p.answers.map((a) => a ?? { choiceId: null, ok: false, ms: DUEL.answerMs, points: 0 });
+    for (const p of room.players) p.answers = p.answers.map((a) => a ?? { choiceId: null, ok: false, ms: this.cfg.answerMs, points: 0 });
     room.phase = "done";
     const [a, b] = room.players;
     const winner = winnerOf(a.score, b.score);
     const scoreA = winner === "a" ? 1 : winner === "draw" ? 0.5 : 0;
     // Chỉ tài khoản đã đăng ký mới có Đạo vị. Khách và bot không bị lưu điểm.
     const ranked = (p: Player) => !room.friendly && !p.bot && !p.guest;
-    a.delta = ranked(a) ? eloDelta(a.rating, b.rating, scoreA) : 0;
-    b.delta = ranked(b) ? eloDelta(b.rating, a.rating, 1 - scoreA) : 0;
+    a.delta = ranked(a) ? eloDelta(a.rating, b.rating, scoreA, this.cfg.k) : 0;
+    b.delta = ranked(b) ? eloDelta(b.rating, a.rating, 1 - scoreA, this.cfg.k) : 0;
 
     const db = this.env.DB;
     const now = Date.now();
     const stmts: D1PreparedStatement[] = [
       db
         .prepare(
-          `INSERT INTO duels (id, player_a, player_b, a_name, b_name, b_bot, a_score, b_score, winner, a_delta, b_delta, a_correct, b_correct, questions_json, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING`,
+          `INSERT INTO duels (id, player_a, player_b, a_name, b_name, b_bot, a_score, b_score, winner, a_delta, b_delta, a_correct, b_correct, questions_json, created_at, kind)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO NOTHING`,
         )
-        .bind(room.roomId, a.id, b.bot ? null : b.id, a.name, b.name, b.bot ? 1 : 0, a.score, b.score, winner, a.delta, b.delta, a.correct, b.correct, JSON.stringify(room.qids), now),
+        .bind(room.roomId, a.id, b.bot ? null : b.id, a.name, b.name, b.bot ? 1 : 0, a.score, b.score, winner, a.delta, b.delta, a.correct, b.correct, JSON.stringify(room.qids), now, room.friendly ? "friendly" : b.bot ? "bot" : "ranked"),
     ];
     for (const [p, res] of [
       [a, scoreA],
@@ -320,7 +325,7 @@ export class DuelRoom extends DurableObject<Env> {
 
   private snapshot(idx: number) {
     const room = this.room!;
-    const label = this.env.DUEL_BOT_LABEL === "1";
+    const label = this.cfg.botLabel || this.env.DUEL_BOT_LABEL === "1";
     const pub = (p: Player) => ({ name: p.name, rating: p.rating, realm: p.realm, path: p.path, guest: p.guest, bot: label ? p.bot : false, connected: p.bot || p.connected });
     return {
       type: "state",

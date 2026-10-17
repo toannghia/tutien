@@ -13,6 +13,10 @@ export const DUEL = {
   k: 32,
 };
 
+// Cấu hình mỗi trận (từ trang admin), chụp lúc tạo phòng
+export type DuelConfig = { questions: number; answerMs: number; k: number; botLabel: boolean };
+export const DUEL_DEFAULTS: DuelConfig = { questions: 5, answerMs: 15_000, k: 32, botLabel: false };
+
 export type Fighter = {
   id: string; // user id, hoặc "bot:…" với bot
   name: string;
@@ -26,9 +30,9 @@ export type Fighter = {
 // ---------------------------------------------------------------- Chấm điểm
 
 /** Đúng: 100 điểm + tối đa 50 điểm tốc độ. Sai hoặc hết giờ: 0. */
-export function points(ok: boolean, ms: number) {
+export function points(ok: boolean, ms: number, answerMs = DUEL.answerMs) {
   if (!ok) return 0;
-  const left = Math.max(0, DUEL.answerMs - ms) / DUEL.answerMs;
+  const left = Math.max(0, answerMs - ms) / answerMs;
   return 100 + Math.round(50 * left);
 }
 
@@ -44,11 +48,12 @@ export function eloDelta(ra: number, rb: number, score: number, k = DUEL.k) {
 
 // ---------------------------------------------------------------- Đề
 
-/** Chọn 5 câu từ mọi ngân hàng, độ khó tăng dần, không trùng. */
-export function pickDuelQuestions(rand: () => number = Math.random): Question[] {
+/** Chọn N câu từ mọi ngân hàng, độ khó tăng dần (1 → 3), không trùng. */
+export function pickDuelQuestions(rand: () => number = Math.random, count = DUEL.questions): Question[] {
   const all = Object.values(BANKS).flat();
   const used = new Set<string>();
-  return DUEL.levels.map((level) => {
+  const levels = count === DUEL.questions ? [...DUEL.levels] : Array.from({ length: count }, (_, i) => 1 + Math.floor((i * 3) / count));
+  return levels.map((level) => {
     const pool = all.filter((q) => q.level === level && !used.has(q.id));
     const q = pool[Math.floor(rand() * pool.length)];
     used.add(q.id);
@@ -89,16 +94,18 @@ export function makeBot(opponent: Fighter, rand: () => number = Math.random): Fi
  * Bot trả lời như người: câu dễ đúng nhiều hơn, chắc chắn thì trả lời nhanh,
  * đoán thì chậm; thỉnh thoảng hết giờ. Điểm Đạo vị càng cao càng giỏi.
  */
-export function botAnswer(q: Question, rating: number, rand: () => number = Math.random): { choiceId: string | null; ms: number } {
+export function botAnswer(q: Question, rating: number, rand: () => number = Math.random, answerMs = DUEL.answerMs): { choiceId: string | null; ms: number } {
   const base = q.level === 1 ? 0.78 : q.level === 2 ? 0.62 : 0.47;
   const accuracy = Math.max(0.25, Math.min(0.93, base + (rating - DUEL.baseRating) / 900));
-  if (rand() < 0.04) return { choiceId: null, ms: DUEL.answerMs }; // lơ đãng, hết giờ
+  if (rand() < 0.04) return { choiceId: null, ms: answerMs }; // lơ đãng, hết giờ
   const knows = rand() < accuracy;
   // Thời gian phản ứng: biết thì 2,2–7s; đoán thì 5–13s
-  const ms = Math.round(knows ? 2200 + rand() * 4800 : 5000 + rand() * 8000);
+  // Co giãn theo thời gian mỗi câu (mặc định 15s)
+  const scale = answerMs / DUEL.answerMs;
+  const ms = Math.round((knows ? 2200 + rand() * 4800 : 5000 + rand() * 8000) * scale);
   if (knows) return { choiceId: q.answer, ms };
   // Đoán: vẫn có 1/4 cơ hội trúng
-  return { choiceId: pick(q.options, rand).id, ms: Math.min(ms, DUEL.answerMs - 400) };
+  return { choiceId: pick(q.options, rand).id, ms: Math.min(ms, answerMs - 400) };
 }
 
 // ---------------------------------------------------------------- Phòng mời bạn
@@ -117,7 +124,7 @@ export function normalizeCode(input: string) {
 }
 
 /** Thời gian chờ trước khi ghép bot: 6–12s — đủ để trông như đang tìm người thật. */
-export const botWaitMs = (rand: () => number = Math.random) => 6000 + Math.floor(rand() * 6000);
+export const botWaitMs = (rand: () => number = Math.random, minS = 6, maxS = 12) => Math.round((minS + rand() * Math.max(0, maxS - minS)) * 1000);
 
 /** Biên độ điểm chấp nhận ghép, nới rộng dần theo thời gian chờ. */
 export const ratingWindow = (waitedMs: number) => 150 + Math.floor(waitedMs / 1000) * 40;

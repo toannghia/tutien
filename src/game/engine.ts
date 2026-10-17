@@ -40,6 +40,10 @@ export function createRng(seed: number): Rng {
 
 // ---------------------------------------------------------------- Profile
 
+// Chỉ số cân bằng chụp vào mỗi kiếp lúc tạo (admin chỉnh được). Thiếu thì dùng mặc định = hành vi gốc.
+export type GameConfig = { growth: number; eventRate: number; breakthroughBonus: number; tribulationDeath: number; quizReward: number };
+export const GAME_DEFAULTS: GameConfig = { growth: 1, eventRate: 0.4, breakthroughBonus: 0, tribulationDeath: 0.4, quizReward: 1 };
+
 export type Profile = {
   name: string;
   gender: "male" | "female";
@@ -54,15 +58,16 @@ export type Profile = {
   awakeningAge: number;
   baseLifespan: number;
   isGood: boolean;
+  cfg?: GameConfig;
 };
 
-export function createProfile(seed: number, pityCount: number): Profile {
+export function createProfile(seed: number, pityCount: number, cfg?: GameConfig, pityLimit = PITY_LIMIT): Profile {
   const rng = createRng(seed);
   const world = WORLDS[rng.int(0, WORLDS.length - 1)];
   const origin = rng.pick(ORIGINS);
   let root = rng.pick(ROOTS);
   // Bảo hiểm số mệnh: xui liên tiếp đủ lâu thì kiếp này chắc chắn có linh căn tốt
-  if (pityCount >= PITY_LIMIT && root.score < 48) root = rng.pick(ROOTS.filter((r) => r.score >= 48));
+  if (pityCount >= pityLimit && root.score < 48) root = rng.pick(ROOTS.filter((r) => r.score >= 48));
   const physique = rng.pick(PHYSIQUES);
   const aptitude = rng.int(20, 90);
   const comprehension = rng.int(20, 90);
@@ -86,6 +91,7 @@ export function createProfile(seed: number, pityCount: number): Profile {
     awakeningAge,
     baseLifespan,
     isGood: root.score >= 48 || aptitude >= 80 || physique.id === "dao",
+    ...(cfg ? { cfg } : {}),
   };
 }
 
@@ -203,6 +209,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
   const world = WORLDS.find((w) => w.id === profile.world) ?? WORLDS[0];
   const origin = ORIGINS.find((o) => o.id === profile.origin) ?? ORIGINS[0];
   const body = PHYSIQUES.find((p) => p.id === profile.physique) ?? PHYSIQUES[0];
+  const cfg: GameConfig = { ...GAME_DEFAULTS, ...(profile.cfg ?? {}) };
 
   const s = {
     tick: 0,
@@ -429,7 +436,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
       const sectBonus = s.sect === "elder" ? 1.15 : s.sect === "member" ? 1.05 : 1;
       // Cảnh giới càng cao, tu luyện càng chậm
       const pathBonus = s.path === "nguhanh" ? 1.06 : 1;
-      s.progress += rng.int(6, 12) * talent * world.fortune * body.speed * sectBonus * pathBonus * Math.pow(0.86, s.realm - 1);
+      s.progress += rng.int(6, 12) * talent * world.fortune * body.speed * sectBonus * pathBonus * cfg.growth * Math.pow(0.86, s.realm - 1);
       const stages = REALMS[s.realm].stages.length;
       while (s.stage < stages - 1 && s.progress >= (s.stage + 1) * stageCost()) {
         s.stage++;
@@ -446,7 +453,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
     }
 
     // ---- Sự kiện ngẫu nhiên
-    if (rng.next() < (s.realm === 0 ? 0.3 : 0.4)) {
+    if (rng.next() < (s.realm === 0 ? cfg.eventRate * 0.75 : cfg.eventRate)) {
       const pool = EVENTS.filter(eligible).map((e) => ({
         ...e,
         weight: e.weight * ((e.effects?.health ?? 0) < 0 ? world.danger : 1),
@@ -596,7 +603,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
     const reason = failReason(p, tribulation, strikesHeld);
     const tips = failTips(aided, canAid, insight);
     if (tribulation) {
-      const deathChance = 0.4 * (s.health < 60 ? 1.5 : 1) * (body.id === "thunder" ? 0.6 : 1);
+      const deathChance = cfg.tribulationDeath * (s.health < 60 ? 1.5 : 1) * (body.id === "thunder" ? 0.6 : 1);
       if (rng.next() < deathChance) {
         log("Thiên kiếp", `Đạo thiên lôi thứ ${strikesHeld + 1} giáng xuống. Ngươi không đỡ nổi.`, "ending", {
           choice,
@@ -668,6 +675,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
       ["Vấn tâm", s.insight ? 0.1 : 0],
       ["Đạo Luận tu", s.path === "daoluan" ? 0.03 : 0],
       ["Trúc Cơ Đan", target === 2 && s.flags.has("pill") ? 0.2 : 0],
+      ["Thiên ý", cfg.breakthroughBonus / 100],
     ];
     const raw = parts.reduce((sum, [, v]) => sum + v, 0);
     const p = Math.max(0.05, Math.min(0.95, raw));
@@ -743,7 +751,10 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
       "quiz",
       { quiz: { question: q.prompt, picked, answer, ok, explain: q.explain } },
     );
-    if (ok) s.facts[at].delta = apply(pathDef()!.reward as Effects);
+    if (ok && cfg.quizReward > 0) {
+      const reward = Object.fromEntries(Object.entries(pathDef()!.reward).map(([k, v]) => [k, Math.round(Number(v) * cfg.quizReward)])) as Effects;
+      s.facts[at].delta = apply(reward);
+    }
     return ok;
   }
 

@@ -5,3 +5,4 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 BETTER_AUTH_URL=http://localhost:8787
 TRUSTED_ORIGINS=http://localhost:8787
+ADMIN_EMAILS=admin@tutien.test

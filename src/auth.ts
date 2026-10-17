@@ -13,6 +13,7 @@ export type Env = {
   MATCHMAKER: DurableObjectNamespace;
   DUEL_ROOM: DurableObjectNamespace;
   DUEL_BOT_LABEL?: string;
+  ADMIN_EMAILS?: string; // email (tài khoản đã đăng ký) được vào trang admin, cách nhau bởi dấu phẩy
 };
 
 export const GUEST_NAME = "Vô danh tu sĩ";

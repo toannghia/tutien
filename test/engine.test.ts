@@ -195,3 +195,32 @@ describe("chỉ số theo mốc", () => {
     }
   });
 });
+
+describe("cấu hình theo kiếp", () => {
+  it("cấu hình mặc định cho kết quả giống hệt kiếp không có cấu hình", async () => {
+    const { GAME_DEFAULTS } = await import("../src/game/engine");
+    for (let seed = 1; seed <= 30; seed++) {
+      const a = createProfile(seed, 0);
+      const b = createProfile(seed, 0, GAME_DEFAULTS);
+      expect(replay(seed, b, []).facts.map((f) => f.title)).toEqual(replay(seed, a, []).facts.map((f) => f.title));
+    }
+  });
+
+  it("tốc độ tu luyện cao hơn thì đi xa hơn (trung bình)", async () => {
+    const avg = (growth: number) => {
+      let sum = 0;
+      for (let seed = 1; seed <= 120; seed++) {
+        const profile = createProfile(seed, 0, { growth, eventRate: 0.4, breakthroughBonus: 0, tribulationDeath: 0.4, quizReward: 1 });
+        const choices: ChoiceInput[] = [];
+        let s = replay(seed, profile, choices);
+        while (s.pending) {
+          choices.push({ eventId: s.pending.eventId, choiceId: s.pending.kind === "breakthrough" ? "attempt" : s.pending.options.at(-1)!.id });
+          s = replay(seed, profile, choices);
+        }
+        sum += s.realm;
+      }
+      return sum / 120;
+    };
+    expect(avg(2)).toBeGreaterThan(avg(0.5));
+  });
+});

@@ -261,6 +261,46 @@ nav.links a.active, nav.links a:hover { background: var(--bg-2); color: var(--in
 .fact details.explain { font-size: 13px; color: var(--muted); margin-top: 4px; }
 .fact details.explain summary { cursor: pointer; color: var(--ink-2); }
 
+/* ---------- Quản trị ---------- */
+.admin .range { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+.admin .range button { background: none; border: 1px solid var(--line); border-radius: 99px; padding: 5px 12px; cursor: pointer; color: var(--ink-2); font-size: 13px; }
+.admin .range button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+.stat { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 12px 14px; }
+.stat small { display: block; color: var(--muted); font-size: 12px; }
+.stat b { display: block; font-family: var(--serif); font-weight: 500; font-size: 30px; line-height: 1.2; }
+.stat span { font-size: 12px; color: var(--muted); }
+.charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.chart { margin: 0; border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 12px 14px; min-width: 0; }
+.chart figcaption { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.chart-box { position: relative; }
+.chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.chart .grid { stroke: var(--line); stroke-width: 1; stroke-dasharray: 2 3; }
+.chart .base { stroke: var(--muted); stroke-width: 1; }
+.chart .axis { fill: var(--muted); font: 10px var(--sans); }
+.chart .bar path { fill: var(--accent); }
+.chart .bar.on path { fill: var(--gold); }
+.chart .bar .hit { fill: transparent; }
+.chart .tip { position: absolute; pointer-events: none; background: var(--ink); color: var(--bg); font-size: 12px; padding: 4px 8px; border-radius: 4px; white-space: nowrap; }
+.chart details { margin-top: 6px; }
+.chart summary { cursor: pointer; color: var(--muted); }
+table.mini { width: 100%; border-collapse: collapse; margin-top: 4px; }
+table.mini td, table.mini th { padding: 2px 6px; border-bottom: 1px solid var(--line); text-align: left; font-size: 12px; }
+.hbars { display: grid; gap: 6px; }
+.hrow { display: grid; grid-template-columns: minmax(90px, 38%) 1fr 48px; gap: 8px; align-items: center; font-size: 13px; }
+.hk { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); }
+.htrack { height: 8px; background: var(--bg-2); border-radius: 4px; overflow: hidden; }
+.htrack i { display: block; height: 100%; background: var(--accent); border-radius: 0 4px 4px 0; }
+.hn { text-align: right; font-variant-numeric: tabular-nums; }
+.setting-group { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 6px 16px; margin-bottom: 14px; }
+.setting-group h3 { font-size: 17px; margin: 10px 0 4px; }
+.setting { display: grid; grid-template-columns: 1fr 160px; gap: 14px; align-items: center; padding: 12px 0; border-top: 1px solid var(--line); }
+.setting.changed b::after { content: " • đã chỉnh"; color: var(--gold); font: 500 11px var(--sans); }
+.setting-input input[type="number"] { width: 100%; background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; font: 16px var(--sans); }
+.switch { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+.switch input { width: 20px; height: 20px; accent-color: var(--accent); }
+.setting-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
 /* ---------- Bản đồ ---------- */
 .world-map { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 18px 0; padding: 14px; border-radius: 12px; border: 1px solid var(--line);
   background: radial-gradient(60% 80% at 20% 30%, color-mix(in srgb, var(--gold) 10%, transparent), transparent), radial-gradient(50% 70% at 80% 70%, color-mix(in srgb, var(--good) 10%, transparent), transparent), var(--panel); }
@@ -562,6 +602,8 @@ button, a, .option { touch-action: manipulation; -webkit-tap-highlight-color: tr
   .fighter .line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fighter .fname { font-size: 15px; }
   .duel-score { font-size: 24px; }
+  .charts { grid-template-columns: 1fr; }
+  .setting { grid-template-columns: 1fr; }
   .world-map { grid-template-columns: repeat(2, 1fr); padding: 10px; gap: 8px; }
   .wd-stats { grid-template-columns: repeat(3, 1fr); }
   .sect-row { grid-template-columns: 22px 30px 1fr; }
