@@ -1,0 +1,31 @@
+{
+  "name": "tutien",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "db:migrate:local": "wrangler d1 migrations apply tutien-db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply tutien-db --remote",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "balance": "tsx scripts/balance.ts"
+  },
+  "dependencies": {
+    "better-auth": "^1.7.10",
+    "hono": "^4.13.13",
+    "kysely": "^0.29.6",
+    "kysely-d1": "^0.4.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261016.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5",
+    "wrangler": "^4.151.1"
+  },
+  "allowScripts": {
+    "workerd@1.20261012.1": true,
+    "esbuild@0.28.2": true
+  }
+}
