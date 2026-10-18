@@ -858,3 +858,7 @@ button, a, .option { touch-action: manipulation; -webkit-tap-highlight-color: tr
   .ach-grid { grid-template-columns: 1fr; }
 }
 .cards > p { grid-column: 1 / -1; margin: 0; }
+.fx-line { margin: 6px 0; font-weight: 600; }
+.guide-card { grid-column: 1 / -1; }
+.guide-card p { color: var(--ink-2); line-height: 1.6; font-size: 14px; margin: 0 0 8px; }
+.card .muted.small i { color: var(--ink-2); }

@@ -5,6 +5,7 @@ import { createWorldMap } from "./worldmap.js";
 import { avatarSvg } from "./avatar.js";
 import { flagSvg } from "./banner.js";
 import { EMBLEM_GROUPS, emblemGroup, emblemSvg } from "./emblem.js";
+import { PATH_DETAIL, PHYSIQUE_LORE, REALM_LORE, ROOT_LORE, SECT_GUIDE, WORLD_LORE } from "./codex-text.js";
 
 const $view = document.getElementById("view");
 const HUES = [30, 140, 155, 45, 210, 270, 230, 190, 0, 50, 40, 280, 300, 15];
@@ -1330,21 +1331,77 @@ async function renderCodex(tab = "luanhoi") {
         .map((r, i) =>
           card(
             `${i}. ${r.name}`,
-            i === 0
+            `<i>${REALM_LORE[r.id]?.lore ?? ""}</i><br/>${REALM_LORE[r.id]?.play ?? ""}<br/>` +
+            (i === 0
               ? "Thọ nguyên của người thường."
-              : `Thọ nguyên ~${fmt(r.lifespan)} năm · ${r.stages.length} tiểu cảnh giới${r.tribulation ? " · <b>phải độ thiên kiếp</b>" : ""}${r.immortal ? " · tiên giới" : ""}
-                ${r.wallBase != null ? `<div class="realm-diff"><span>Đột phá vào (cơ bản) <b>${r.wallBase}%</b></span><span>Tốc độ tu luyện <b>${r.speed}%</b></span>${r.storm ? `<span>Thiên kiếp hung <b>×${(r.storm / 100).toFixed(2)}</b></span>` : ""}</div>` : ""}`,
+              : `Thọ nguyên ~${fmt(r.lifespan)} năm · ${r.stages.length} tiểu cảnh giới (${r.stages.join(", ")})${r.tribulation ? " · <b>phải độ thiên kiếp</b>" : ""}${r.immortal ? " · tiên giới" : ""}
+                ${r.wallBase != null ? `<div class="realm-diff"><span>Đột phá vào (cơ bản) <b>${r.wallBase}%</b></span><span>Tốc độ tu luyện <b>${r.speed}%</b> (so với Luyện Khí)</span>${r.storm ? `<span>Thiên kiếp hung <b>×${(r.storm / 100).toFixed(2)}</b></span>` : ""}</div>` : ""}`),
           ),
         )
         .join(""),
-    sects: () => c.worlds.map((w) => `<div class="card"><h3>${esc(w.name)}</h3>${c.sects.filter((x) => x.world === w.id).map((x) => `<div class="kv codex-sect"><span class="sflag">${flagSvg(x.id, x.glyph, { size: 40, wave: false })}</span><span class="k">${esc(x.name)}</span></div><div class="muted small" style="margin-bottom:6px">${esc(x.desc)}${x.perk ? `<br><span class="sect-perk">✦ ${esc(x.perk)}</span>` : ""}</div>`).join("")}</div>`).join(""),
-    paths: () => c.paths.map((p) => card(`${p.glyph} ${p.name}`, `${esc(p.desc)}<br/><b>${esc(p.perk)}</b><br/>Ngân hàng: ${p.questions} câu hỏi · khảo hạch khi nhập môn, ở giảng đường tông môn, trước mỗi bình cảnh (vấn tâm) và khi gặp kỳ nhân.`)).join(""),
-    roots: () => c.roots.map((r) => card(r.name, `${esc(r.desc)}<br/>Điểm linh căn: ${r.score}`)).join(""),
-    physiques: () => c.physiques.map((p) => card(p.name, esc(p.desc))).join(""),
+    sects: () => `<div class="card guide-card">${SECT_GUIDE}</div>` + c.worlds.map((w) => `<div class="card"><h3>${esc(w.name)}</h3>${c.sects.filter((x) => x.world === w.id).map((x) => `<div class="kv codex-sect"><span class="sflag">${flagSvg(x.id, x.glyph, { size: 40, wave: false })}</span><span class="k">${esc(x.name)}</span></div><div class="muted small" style="margin-bottom:6px">${esc(x.desc)}${x.perk ? `<br><span class="sect-perk">✦ ${esc(x.perk)}</span>` : ""}</div>`).join("")}</div>`).join(""),
+    paths: () =>
+      `<p class="muted small">Đạo đồ chọn một lần khi linh căn thức tỉnh và theo ngươi suốt kiếp. Mỗi câu khảo hạch trả lời đúng đều có thưởng theo đạo đồ; khảo hạch xuất hiện khi nhập môn, ở giảng đường tông môn, trước mỗi bình cảnh (vấn tâm: đúng thì +10% đột phá) và khi gặp kỳ nhân. Câu đã gặp sẽ được nhắc lại theo đường cong quên lãng.</p>` +
+      c.paths
+        .map((p) =>
+          card(
+            `${p.glyph} ${p.name}`,
+            `${esc(p.desc)}<div class="fx-line good">${esc(p.perk)}</div><b>Hợp với:</b> ${esc(PATH_DETAIL[p.id]?.fit ?? "")}<br/><b>Nội dung khảo hạch:</b> ${esc(PATH_DETAIL[p.id]?.topics ?? "")}<div class="origin-fx"><span class="muted">Ngân hàng ${p.questions} câu hỏi</span></div>`,
+          ),
+        )
+        .join(""),
+    roots: () => {
+      const total = c.roots.reduce((t, r) => t + r.weight, 0);
+      const base = 0.35 + 0.48;
+      return (
+        `<p class="muted small">Linh căn quyết định ngươi có tu tiên được không và tu nhanh đến đâu. Tốc độ tu luyện tỉ lệ với (0,35 + điểm linh căn/100), nên linh căn tốt tu nhanh hơn hẳn; điểm linh căn cũng cộng thẳng vào tỉ lệ đột phá. Xui liên tiếp ${c.rules?.pityLimit ?? 5} kiếp thì kiếp sau chắc chắn có linh căn từ tam linh căn trở lên.</p>` +
+        c.roots
+          .map((r) =>
+            card(
+              r.name,
+              `${esc(r.desc)}<br/>${ROOT_LORE[r.id] ?? ""}<div class="origin-fx">${
+                r.score === 0
+                  ? `<span class="bad">Không thể tu luyện</span>`
+                  : `<span class="${r.score >= 48 ? "good" : ""}">Tốc độ tu luyện ${Math.round(((0.35 + r.score / 100) / base) * 100)}% (so với tam linh căn)</span><span class="good">Đột phá +${Math.round((r.score / 700) * 100)}%</span>`
+              }<span class="muted">Điểm ${r.score} · tỉ lệ đầu thai ${Math.round((r.weight / total) * 1000) / 10}%</span></div>`,
+            ),
+          )
+          .join("")
+      );
+    },
+    physiques: () => {
+      const total = c.physiques.reduce((t, r) => t + r.weight, 0);
+      const fx = (p) => {
+        const out = [];
+        const mul = (v, label, goodWhenHigh = true) => v !== 1 && out.push([`${label} ×${v}`, (v > 1) === goodWhenHigh ? "good" : "bad"]);
+        mul(p.speed, "Tốc độ tu luyện");
+        mul(p.guard, "Thương tích nhận vào", false);
+        mul(p.regen, "Hồi phục thể trạng");
+        if (p.breakthrough) out.push([`Đột phá ${p.breakthrough > 0 ? "+" : "−"}${Math.round(Math.abs(p.breakthrough) * 100)}%`, p.breakthrough > 0 ? "good" : "bad"]);
+        if (p.id === "thunder") out.push(["Nguy cơ chết khi độ kiếp ×0,6", "good"]);
+        if (!out.length) out.push(["Không cộng không trừ", "muted"]);
+        return out;
+      };
+      return (
+        `<p class="muted small">Thể chất là căn cốt nhục thân, bốc ngẫu nhiên lúc đầu thai: ảnh hưởng tốc độ tu luyện, mức chịu thương, tốc độ hồi phục và tỉ lệ đột phá.</p>` +
+        c.physiques
+          .map((p) => card(p.name, `${esc(p.desc)}<br/>${PHYSIQUE_LORE[p.id] ?? ""}<div class="origin-fx">${fx(p).map(([t, cls]) => `<span class="${cls}">${esc(t)}</span>`).join("")}<span class="muted">Tỉ lệ đầu thai ${Math.round((p.weight / total) * 1000) / 10}%</span></div>`))
+          .join("")
+      );
+    },
     origins: () =>
       `<p class="muted small">Xuất thân được luân hồi bốc ngẫu nhiên lúc đầu thai, quyết định linh tài khởi đầu và một vài lợi thế (hoặc gánh nặng) riêng.</p>` +
       c.origins.map((o) => card(o.name, `<i>${esc(o.text)}</i><br/>${esc(o.desc)}<div class="origin-fx">${originEffects(o).map((e) => `<span class="${e[1]}">${esc(e[0])}</span>`).join("")}<span class="muted">Tỉ lệ đầu thai ${o.chance}%</span></div>`)).join(""),
-    worlds: () => c.worlds.map((w) => card(w.name, `${esc(w.desc)}<br/>Hiểm họa ×${w.danger} · Cơ duyên ×${w.fortune}`)).join(""),
+    worlds: () =>
+      `<p class="muted small"><b>Cơ duyên</b> nhân thẳng vào tốc độ tu luyện. <b>Hiểm họa</b> nhân vào khả năng gặp tai ương và kết cục xấu khi chọn liều. Giới diện bốc ngẫu nhiên lúc đầu thai; mỗi giới có môn phái riêng.</p>` +
+      c.worlds
+        .map((w) =>
+          card(
+            w.name,
+            `${esc(w.desc)}<br/>${WORLD_LORE[w.id] ?? ""}<div class="origin-fx"><span class="${w.fortune >= 1.1 ? "good" : w.fortune < 1 ? "bad" : ""}">Cơ duyên ×${w.fortune} (tu luyện ${w.fortune >= 1 ? "+" : "−"}${Math.round(Math.abs(w.fortune - 1) * 100)}%)</span><span class="${w.danger <= 0.9 ? "good" : w.danger >= 1.3 ? "bad" : ""}">Hiểm họa ×${w.danger}</span></div><div class="muted small" style="margin-top:6px">Môn phái: ${c.sects.filter((x) => x.world === w.id).map((x) => esc(x.name)).join(", ")}</div>`,
+          ),
+        )
+        .join(""),
     achievements: () =>
       EMBLEM_GROUPS.map(([g, label]) => {
         const list = c.achievements.filter((a) => emblemGroup(a.id) === g);
