@@ -68,3 +68,41 @@ export async function currentBanks(db: D1Database): Promise<{ version: number; b
   const { rows } = await rowsAtLeast(db, v);
   return { version: v, banks: banksAt(rows, v) };
 }
+
+/** family + đạo đồ của một câu (theo id bất kỳ phiên bản); câu trong code có family = id. */
+export async function familyOf(db: D1Database, ids: string[]): Promise<Map<string, { family: string; path: string }>> {
+  const { rows } = await rowsAtLeast(db, 0);
+  const byId = new Map(rows.map((r) => [r.id, { family: r.family, path: r.path }]));
+  const out = new Map<string, { family: string; path: string }>();
+  for (const id of ids) {
+    let hit = byId.get(id);
+    if (!hit) {
+      // Có thể là câu mới hơn cache: nạp lại một lần
+      cache = null;
+      const fresh = await rowsAtLeast(db, 0);
+      hit = new Map(fresh.rows.map((r) => [r.id, { family: r.family, path: r.path }])).get(id);
+    }
+    if (hit) out.set(id, hit);
+  }
+  return out;
+}
+
+/** id câu đang dùng (tại phiên bản v) cho từng family. */
+export async function idsForFamilies(db: D1Database, v: number, families: string[]): Promise<Map<string, string>> {
+  const { rows } = await rowsAtLeast(db, v);
+  const live = rows.filter((r) => r.created_v <= v && (r.deleted_v === null || r.deleted_v > v));
+  const byFam = new Map(live.map((r) => [r.family, r.id]));
+  return new Map(families.filter((f) => byFam.has(f)).map((f) => [f, byFam.get(f)!]));
+}
+
+/** Tìm câu theo id (mọi phiên bản). */
+export async function questionById(db: D1Database, id: string): Promise<(Question & { path: string; family: string }) | null> {
+  let { rows } = await rowsAtLeast(db, 0);
+  let r = rows.find((x) => x.id === id);
+  if (!r) {
+    cache = null;
+    rows = (await rowsAtLeast(db, 0)).rows;
+    r = rows.find((x) => x.id === id);
+  }
+  return r ? { ...rowToQuestion(r), path: r.path, family: r.family } : null;
+}

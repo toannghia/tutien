@@ -336,6 +336,21 @@ table.mini td, table.mini th { padding: 2px 6px; border-bottom: 1px solid var(--
 .sect-power b { display: block; font-family: var(--serif); font-size: 20px; font-weight: 500; }
 .sect-power small { color: var(--muted); font-size: 11px; }
 
+/* ---------- Ôn tập ---------- */
+.review-start { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 18px 0 6px; }
+.review-start select { background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; padding: 10px; font: 15px var(--sans); }
+.review-card { max-width: 640px; margin: 0 auto; }
+.review-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.review-tag { font: 600 11px var(--sans); letter-spacing: 0; text-transform: none; border-radius: 99px; padding: 1px 8px; border: 1px solid; vertical-align: middle; }
+.review-tag.new { color: var(--good); border-color: color-mix(in srgb, var(--good) 50%, transparent); }
+.review-tag.again { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 55%, transparent); }
+.review-card .bar { margin: 4px 0 14px; }
+.home-links { display: flex; gap: 18px; justify-content: center; margin-top: 14px; font-size: 14px; }
+.home-links a { color: var(--ink-2); text-decoration: none; border-bottom: 1px dashed var(--line); }
+a[data-route] { position: relative; }
+.badge-due { position: absolute; top: 2px; right: 50%; transform: translateX(18px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 99px; background: var(--danger); color: #fff; font: 600 10px/16px var(--sans); text-align: center; }
+nav.links .badge-due { top: -2px; right: -4px; transform: none; }
+
 /* ---------- Quản trị câu hỏi ---------- */
 .qa-counts td, .qa-counts th { padding: 6px 8px; }
 .qa-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 8px; align-items: center; }
@@ -668,6 +683,8 @@ button, a, .option { touch-action: manipulation; -webkit-tap-highlight-color: tr
 .fighter .fname { font-size: 15px; }
   .duel-score { font-size: 24px; }
   .charts { grid-template-columns: 1fr; }
+  .stats { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat b { font-size: 24px; }
   .wm { height: min(62vh, 108vw); border-width: 4px; }
   .wm-card { max-height: 55%; overflow: auto; font-size: 13px; }
   .wm-card > .muted.small:nth-of-type(2) { display: none; }

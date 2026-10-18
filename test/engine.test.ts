@@ -224,3 +224,36 @@ describe("cấu hình theo kiếp", () => {
     expect(avg(2)).toBeGreaterThan(avg(0.5));
   });
 });
+
+describe("ôn tập trong kiếp", () => {
+  // Chơi tới câu khảo hạch thứ n (đếm từ 1); trả về trạng thái đang chờ câu đó
+  function nthQuiz(seed: number, profile: ReturnType<typeof createProfile>, n: number) {
+    const choices: ChoiceInput[] = [];
+    let s = replay(seed, profile, choices);
+    let seen = 0;
+    while (s.pending) {
+      if (s.pending.kind === "quiz" && ++seen === n) return s;
+      choices.push({ eventId: s.pending.eventId, choiceId: s.pending.kind === "path" ? "tieudao" : s.pending.options.at(-1)!.id });
+      s = replay(seed, profile, choices);
+    }
+    return null;
+  }
+
+  it("câu đến hạn ôn được hỏi xen kẽ, gắn nhãn ôn lại, và phát lại tất định", () => {
+    for (let seed = 1; seed < 80; seed++) {
+      const base = createProfile(seed, 0);
+      if (!base.rootScore) continue;
+      const review = BANKS.tieudao.slice(-3).map((q) => q.id); // 3 câu khó nhất của Tiêu Dao
+      const profile = { ...base, review };
+      const first = nthQuiz(seed, profile, 1);
+      if (!first) continue;
+      expect(first.pending!.review).toBe(true);
+      expect(review).toContain(first.pending!.eventId.slice(5));
+      const second = nthQuiz(seed, profile, 2);
+      if (second) expect(second.pending!.review).toBeUndefined(); // câu thứ 2 là câu mới
+      expect(nthQuiz(seed, profile, 1)).toEqual(first);
+      return;
+    }
+    throw new Error("không tìm được seed phù hợp");
+  });
+});

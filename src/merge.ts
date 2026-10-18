@@ -64,6 +64,16 @@ export async function mergeGuestInto(db: D1Database, guestId: string, targetId: 
     // Lịch sử luận đạo của khách đi theo sang tài khoản (khách không có điểm Đạo vị nên không cần gộp ratings)
     db.prepare("UPDATE duels SET player_a = ? WHERE player_a = ?").bind(targetId, guestId),
     db.prepare("UPDATE duels SET player_b = ? WHERE player_b = ?").bind(targetId, guestId),
+    // Sổ nhớ ôn tập: câu chưa có ở tài khoản thì chuyển sang; câu trùng thì giữ bản ôn gần nhất
+    db.prepare(
+      `INSERT INTO user_srs (user_id, family, path, ease, interval, reps, lapses, seen, correct, due_at, last_at)
+       SELECT ?1, family, path, ease, interval, reps, lapses, seen, correct, due_at, last_at FROM user_srs WHERE user_id = ?2
+       ON CONFLICT(user_id, family) DO UPDATE SET ease = excluded.ease, interval = excluded.interval, reps = excluded.reps,
+         lapses = user_srs.lapses + excluded.lapses, seen = user_srs.seen + excluded.seen, correct = user_srs.correct + excluded.correct,
+         due_at = excluded.due_at, last_at = excluded.last_at
+       WHERE excluded.last_at > user_srs.last_at`,
+    ).bind(targetId, guestId),
+    db.prepare("DELETE FROM user_srs WHERE user_id = ?").bind(guestId),
   );
 
   // D1 batch chạy trong một transaction: hoặc gộp hết, hoặc không gộp gì

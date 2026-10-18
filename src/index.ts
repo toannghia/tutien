@@ -4,8 +4,10 @@ import { ACHIEVEMENTS, ORIGINS, PATHS, PHYSIQUES, REALMS, ROOTS, SECTS, WORLDS }
 import { DUEL, type Fighter } from "./duel/logic";
 
 import { admin, isAdmin } from "./admin";
+import { review } from "./review";
 import { gameConfigOf, getSettings } from "./settings";
-import { banksFor, currentBanks } from "./quiz-store";
+import { banksFor, currentBanks, familyOf, idsForFamilies } from "./quiz-store";
+import { dueFamilies, recordAnswers } from "./srs";
 
 export { Matchmaker } from "./duel/matchmaker";
 export { DuelRoom } from "./duel/room";
@@ -74,7 +76,14 @@ app.post("/api/game/runs", async (c) => {
   const profile = createProfile(seed, stats?.pity_count ?? 0, gameConfigOf(settings), Number(settings.pityLimit));
   // Chụp phiên bản ngân hàng câu hỏi: admin sửa câu hỏi sau này không làm lệch kiếp này
   const { version: qv, banks } = await currentBanks(db);
-  if (qv) profile.qv = qv;
+  if (qv) {
+    profile.qv = qv;
+    // Ôn tập ngắt quãng: câu đến hạn của người chơi được xếp vào kiếp này (đạo đồ chưa biết lúc tạo → lấy mọi đạo đồ)
+    const due = await dueFamilies(db, user.id, { limit: 40 });
+    const ids = await idsForFamilies(db, qv, due.map((d) => d.family));
+    const review = due.map((d) => ids.get(d.family)).filter((x): x is string => !!x);
+    if (review.length) profile.review = review;
+  }
   const state = replay(seed, profile, [], banks);
   const id = crypto.randomUUID();
   const now = Date.now();
@@ -137,6 +146,13 @@ app.post("/api/game/runs/:id/choices", async (c) => {
     if (e instanceof InvalidChoiceError) return c.json({ error: "invalid_choice" }, 400);
     throw e;
   }
+  // Câu khảo hạch → ghi sổ nhớ ôn tập
+  if (body.eventId.startsWith("quiz:")) {
+    const qid = body.eventId.slice(5);
+    const f = (await familyOf(db, [qid])).get(qid);
+    const fact = [...state.facts].reverse().find((x) => x.quiz?.qid === qid);
+    if (f && fact?.quiz) await recordAnswers(db, user.id, [{ family: f.family, path: f.path, grade: body.choiceId === "skip" ? "skip" : fact.quiz.ok ? "good" : "again" }]);
+  }
   await db.prepare("INSERT INTO run_choices (run_id, step, event_id, choice_id, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING")
     .bind(run.id, body.step, body.eventId, body.choiceId, Date.now()).run();
   const unlocked = await saveProgress(db, run.id, user.id, state);
@@ -184,6 +200,7 @@ app.get("/api/leaderboard", async (c) => {
 });
 
 app.route("/api/admin", admin);
+app.route("/api/review", review);
 
 // ---------------------------------------------------------------- Bản đồ thế giới
 

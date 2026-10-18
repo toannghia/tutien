@@ -60,6 +60,7 @@ export type Profile = {
   isGood: boolean;
   cfg?: GameConfig;
   qv?: number; // phiên bản ngân hàng câu hỏi lúc tạo kiếp (không có = ngân hàng trong code)
+  review?: string[]; // id câu đến hạn ôn tập lúc tạo kiếp (ôn ngắt quãng), quá hạn lâu nhất trước
 };
 
 export function createProfile(seed: number, pityCount: number, cfg?: GameConfig, pityLimit = PITY_LIMIT): Profile {
@@ -113,7 +114,7 @@ export type Fact = {
   // Chi tiết một lần đột phá, để giao diện dựng hiệu ứng kết quả
   breakthrough?: BreakInfo;
   // Kết quả một câu khảo hạch (chỉ có SAU khi đã trả lời)
-  quiz?: { question: string; picked: string | null; answer: string; ok: boolean; explain: string };
+  quiz?: { qid: string; question: string; picked: string | null; answer: string; ok: boolean; explain: string; review?: boolean };
 };
 export type FactStat = {
   h: number; // thể trạng
@@ -152,6 +153,7 @@ export type PendingChoice = {
   intro?: string; // bối cảnh khảo hạch
   progress?: string; // "2/3"
   school?: string; // tên đạo đồ
+  review?: boolean; // câu ôn tập (người chơi từng gặp, đến hạn nhắc lại)
   // Chỉ có ở bình cảnh
   aidChance?: number;
   factors?: BreakFactor[];
@@ -699,6 +701,21 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     log(`Đạo đồ · ${pathDef()!.name}`, `Ngươi chọn ${pathDef()!.name} làm con đường cầu đạo. ${pathDef()!.perk}`, "life", { choice: pathDef()!.name });
   }
 
+  // Câu ôn tập: xen kẽ — câu khảo hạch thứ 1, 3, 5… ưu tiên câu đến hạn ôn (không dùng rng)
+  function pickReview(): Question | null {
+    if (!profile.review?.length || s.quizTotal % 2 !== 0) return null;
+    const bank = banks[s.path!] ?? [];
+    for (const id of profile.review) {
+      if (s.asked.has(id)) continue;
+      const q = bank.find((x) => x.id === id);
+      if (q) {
+        s.asked.add(q.id);
+        return q;
+      }
+    }
+    return null;
+  }
+
   function pickQuestion(level?: number): Question {
     const bank = banks[s.path!] ?? [];
     const max = level ?? (s.realm <= 2 ? 1 : s.realm <= 5 ? 2 : 3);
@@ -722,7 +739,8 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
 
   // Hỏi một câu; trả về true nếu đúng. Câu bỏ qua tính là không đúng nhưng không cắt chuỗi đúng liên tiếp.
   function ask(title: string, intro: string, progress: string, level?: number): boolean {
-    const q = pickQuestion(level);
+    const reviewQ = pickReview();
+    const q = reviewQ ?? pickQuestion(level);
     const pending: PendingChoice = {
       eventId: `quiz:${q.id}`,
       kind: "quiz",
@@ -731,6 +749,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
       intro,
       progress,
       school: pathDef()!.name,
+      review: reviewQ ? true : undefined,
       options: [...shuffle(q.options).map(({ id, text }) => ({ id, text })), { id: SKIP, text: "Bỏ qua câu này", hint: "Không có thưởng" }],
     };
     const pick = take(pending);
@@ -750,7 +769,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
       `${title} · ${ok ? "Đáp đúng" : skipped ? "Bỏ qua" : "Đáp sai"}`,
       q.prompt,
       "quiz",
-      { quiz: { question: q.prompt, picked, answer, ok, explain: q.explain } },
+      { quiz: { qid: q.id, question: q.prompt, picked, answer, ok, explain: q.explain, review: reviewQ ? true : undefined } },
     );
     if (ok && cfg.quizReward > 0) {
       const reward = Object.fromEntries(Object.entries(pathDef()!.reward).map(([k, v]) => [k, Math.round(Number(v) * cfg.quizReward)])) as Effects;

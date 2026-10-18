@@ -3,7 +3,8 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "../auth";
 import { BANKS, type Question } from "../game/quiz";
-import { currentBanks } from "../quiz-store";
+import { currentBanks, familyOf } from "../quiz-store";
+import { recordAnswers } from "../srs";
 import { botAnswer, DUEL, DUEL_DEFAULTS, eloDelta, pickDuelQuestions, points, shuffled, winnerOf, type DuelConfig, type Fighter } from "./logic";
 
 type Answer = { choiceId: string | null; ok: boolean; ms: number; points: number };
@@ -307,6 +308,16 @@ export class DuelRoom extends DurableObject<Env> {
     }
     await db.batch(stmts);
     for (const p of room.players) if (ranked(p)) p.newRating = p.rating + p.delta;
+    // Sổ nhớ ôn tập: mỗi câu trong trận tính như một lần ôn (người thật, kể cả khách)
+    const fams = await familyOf(db, room.qids);
+    for (const p of room.players) {
+      if (p.bot) continue;
+      const answers = room.qids
+        .map((qid, i) => ({ f: fams.get(qid), a: p.answers[i] }))
+        .filter((x) => x.f)
+        .map(({ f, a }) => ({ family: f!.family, path: f!.path, grade: (a?.ok ? "good" : a?.choiceId ? "again" : "skip") as "good" | "again" | "skip" }));
+      await recordAnswers(db, p.id, answers).catch(() => {});
+    }
 
     room.players.forEach((me, idx) => {
       const opp = room.players[1 - idx];

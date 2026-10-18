@@ -56,6 +56,20 @@ Game mô phỏng một đời tu tiên. Chạy trên Cloudflare Workers + D1, d�
   - hệ thống: số ngày giữ tài khoản khách.
 - Cấu hình lối chơi được **chụp vào mỗi kiếp lúc tạo**, nên đổi chỉ số chỉ ảnh hưởng kiếp mới; các kiếp đang chơi vẫn phát lại đúng.
 
+## Ôn tập ngắt quãng
+
+Hệ thống nhắc lại câu hỏi theo đường cong quên lãng (`src/srs.ts`, biến thể SM-2 giống Anki), với một sổ nhớ riêng cho mỗi người chơi × mỗi câu hỏi (bảng `user_srs`, tính theo `family` nên vẫn đúng khi câu hỏi được sửa).
+- **Đúng:** khoảng cách ôn 1 ngày → 3 ngày → khoảng cách × độ dễ (tối đa 365 ngày), độ dễ tăng nhẹ.
+- **Sai:** gặp lại sau 10 phút, độ dễ giảm, tăng số lần quên. **Bỏ qua:** gặp lại sau 10 phút, không giảm độ dễ.
+- **Độ nhớ ước tính:** R = e^(−t / (1,4·S)), với S là khoảng cách ôn hiện tại.
+
+Câu đến hạn quay lại theo ba đường:
+1. **Trong kiếp:** khi tạo kiếp, danh sách câu đến hạn được lưu vào `profile.review` (để phát lại tất định). Khảo hạch xen kẽ, cứ một câu ôn rồi một câu mới, có nhãn "Ôn lại".
+2. **Trang Ôn tập** (`/#/review`): phiên thẻ ôn 10 câu (câu đến hạn trước, thiếu thì thêm câu mới), có thống kê và lịch ôn 7 ngày tới.
+3. **Luận đạo:** mỗi câu trong trận được tính là một lần ôn.
+
+Khi khách đăng ký tài khoản, sổ nhớ được gộp theo câu và giữ bản ôn gần nhất.
+
 ## Quản lý câu hỏi (admin)
 
 Tab **Câu hỏi** trong `/#/admin`:
