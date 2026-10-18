@@ -1,11 +1,11 @@
 import { Hono } from "hono";
 import { createAuth, GUEST_NAME, type Env } from "./auth";
 import { ACHIEVEMENTS, ORIGINS, PATHS, PHYSIQUES, REALMS, ROOTS, SECTS, WORLDS } from "./game/data";
-import { BANKS } from "./game/quiz";
 import { DUEL, type Fighter } from "./duel/logic";
 
 import { admin, isAdmin } from "./admin";
 import { gameConfigOf, getSettings } from "./settings";
+import { banksFor, currentBanks } from "./quiz-store";
 
 export { Matchmaker } from "./duel/matchmaker";
 export { DuelRoom } from "./duel/room";
@@ -21,20 +21,21 @@ const app = new Hono<{ Bindings: Env; Variables: Vars }>();
 app.on(["GET", "POST"], "/api/auth/*", (c) => createAuth(c.env).handler(c.req.raw));
 
 // Cẩm nang + cấu hình: công khai, client tải một lần lúc mở game
-app.get("/api/codex", (c) =>
-  c.json({
+app.get("/api/codex", async (c) => {
+  const { banks } = await currentBanks(c.env.DB);
+  return c.json({
     realms: REALMS,
     roots: ROOTS,
     physiques: PHYSIQUES,
     // Chỉ gửi thông tin đạo đồ và số câu — tuyệt đối không gửi ngân hàng câu hỏi
-    paths: PATHS.map(({ id, name, glyph, desc, perk }) => ({ id, name, glyph, desc, perk, questions: BANKS[id].length })),
+    paths: PATHS.map(({ id, name, glyph, desc, perk }) => ({ id, name, glyph, desc, perk, questions: banks[id]?.length ?? 0 })),
     origins: ORIGINS.map(({ id, name, resources, sect }) => ({ id, name, resources, sect })),
     worlds: WORLDS,
     sects: SECTS,
     achievements: ACHIEVEMENTS.map(({ id, name, desc }) => ({ id, name, desc })),
     google: !!(c.env.GOOGLE_CLIENT_ID && c.env.GOOGLE_CLIENT_SECRET),
-  }),
-);
+  });
+});
 
 // Mọi API game đều cần phiên (khách hoặc thật). Client gọi /api/auth/sign-in/anonymous lúc mở game.
 app.use("/api/game/*", async (c, next) => {
@@ -71,7 +72,10 @@ app.post("/api/game/runs", async (c) => {
   // Chụp cấu hình hiện tại vào kiếp: admin đổi chỉ số sau này không ảnh hưởng kiếp đang chơi
   const settings = await getSettings(db);
   const profile = createProfile(seed, stats?.pity_count ?? 0, gameConfigOf(settings), Number(settings.pityLimit));
-  const state = replay(seed, profile, []);
+  // Chụp phiên bản ngân hàng câu hỏi: admin sửa câu hỏi sau này không làm lệch kiếp này
+  const { version: qv, banks } = await currentBanks(db);
+  if (qv) profile.qv = qv;
+  const state = replay(seed, profile, [], banks);
   const id = crypto.randomUUID();
   const now = Date.now();
   const pity = profile.isGood ? 0 : (stats?.pity_count ?? 0) + 1;
@@ -95,7 +99,7 @@ app.get("/api/game/runs/current", async (c) => {
   if (!run) return c.json(null);
   const profile = JSON.parse(run.profile_json) as Profile;
   try {
-    return c.json(view(run.id, run.number, profile, replay(run.seed, profile, await loadChoices(c.env.DB, run.id))));
+    return c.json(view(run.id, run.number, profile, replay(run.seed, profile, await loadChoices(c.env.DB, run.id), await banksFor(c.env.DB, profile.qv))));
   } catch (e) {
     // Nội dung game đã thay đổi khiến lựa chọn cũ không còn khớp: khép kiếp dở thay vì báo lỗi mãi
     if (!(e instanceof InvalidChoiceError)) throw e;
@@ -120,7 +124,7 @@ app.post("/api/game/runs/:id/choices", async (c) => {
   if (body.step < choices.length) {
     const prev = choices[body.step];
     if (prev.eventId === body.eventId && prev.choiceId === body.choiceId) {
-      return c.json({ ...view(run.id, run.number, profile, replay(run.seed, profile, choices)), unlocked: [] });
+      return c.json({ ...view(run.id, run.number, profile, replay(run.seed, profile, choices, await banksFor(db, profile.qv))), unlocked: [] });
     }
     return c.json({ error: "step_conflict" }, 409);
   }
@@ -128,7 +132,7 @@ app.post("/api/game/runs/:id/choices", async (c) => {
 
   let state: RunState;
   try {
-    state = replay(run.seed, profile, [...choices, { eventId: body.eventId, choiceId: body.choiceId }]);
+    state = replay(run.seed, profile, [...choices, { eventId: body.eventId, choiceId: body.choiceId }], await banksFor(db, profile.qv));
   } catch (e) {
     if (e instanceof InvalidChoiceError) return c.json({ error: "invalid_choice" }, 400);
     throw e;
@@ -146,9 +150,10 @@ app.get("/api/game/runs/:id", async (c) => {
   const profile = JSON.parse(run.profile_json) as Profile;
   const choices = await loadChoices(c.env.DB, run.id);
   // Kiếp từ phiên bản nội dung cũ có thể không dựng lại trọn vẹn: phát lại tới lựa chọn cuối còn hợp lệ
+  const banks = await banksFor(c.env.DB, profile.qv);
   for (let n = choices.length; n >= 0; n--) {
     try {
-      return c.json({ ...view(run.id, run.number, profile, replay(run.seed, profile, choices.slice(0, n))), status: run.status, storedEnding: (run as RunRow & { ending_reason: string | null }).ending_reason });
+      return c.json({ ...view(run.id, run.number, profile, replay(run.seed, profile, choices.slice(0, n), banks)), status: run.status, storedEnding: (run as RunRow & { ending_reason: string | null }).ending_reason });
     } catch (e) {
       if (!(e instanceof InvalidChoiceError)) throw e;
     }

@@ -3,6 +3,7 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "../auth";
 import { BANKS, type Question } from "../game/quiz";
+import { currentBanks } from "../quiz-store";
 import { botAnswer, DUEL, DUEL_DEFAULTS, eloDelta, pickDuelQuestions, points, shuffled, winnerOf, type DuelConfig, type Fighter } from "./logic";
 
 type Answer = { choiceId: string | null; ok: boolean; ms: number; points: number };
@@ -21,6 +22,7 @@ type Room = {
   createdAt: number;
   friendly?: boolean; // trận mời bạn: giao hữu, không tính Đạo vị
   cfg?: DuelConfig;
+  questions?: Question[]; // lưu nguyên câu hỏi: admin sửa ngân hàng giữa trận không ảnh hưởng
 };
 
 const ALL = new Map(Object.values(BANKS).flat().map((q) => [q.id, q] as const));
@@ -71,7 +73,8 @@ export class DuelRoom extends DurableObject<Env> {
   }
 
   private async init({ roomId, fighters, friendly = false, cfg = DUEL_DEFAULTS }: { roomId: string; fighters: Fighter[]; friendly?: boolean; cfg?: DuelConfig }) {
-    const qs = pickDuelQuestions(Math.random, cfg.questions);
+    const { banks } = await currentBanks(this.env.DB);
+    const qs = pickDuelQuestions(Math.random, cfg.questions, Object.values(banks).flat());
     const now = Date.now();
     this.room = {
       roomId,
@@ -86,6 +89,7 @@ export class DuelRoom extends DurableObject<Env> {
       createdAt: now,
       friendly,
       cfg,
+      questions: qs,
     };
     await this.save();
     await this.ctx.storage.setAlarm(this.room.endsAt);
@@ -361,6 +365,6 @@ export class DuelRoom extends DurableObject<Env> {
 }
 
 function question(room: Room, i: number): Question {
-  return ALL.get(room.qids[i])!;
+  return room.questions?.[i] ?? ALL.get(room.qids[i])!;
 }
 

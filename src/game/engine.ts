@@ -59,6 +59,7 @@ export type Profile = {
   baseLifespan: number;
   isGood: boolean;
   cfg?: GameConfig;
+  qv?: number; // phiên bản ngân hàng câu hỏi lúc tạo kiếp (không có = ngân hàng trong code)
 };
 
 export function createProfile(seed: number, pityCount: number, cfg?: GameConfig, pityLimit = PITY_LIMIT): Profile {
@@ -203,7 +204,7 @@ const resourceScale = (realm: number) => 1 + realm * 0.6;
 
 // ---------------------------------------------------------------- Replay
 
-export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): RunState {
+export function replay(seed: number, profile: Profile, choices: ChoiceInput[], banks: Record<string, Question[]> = BANKS): RunState {
   // seed riêng cho phần mô phỏng, tách khỏi phần tạo profile
   const rng = createRng(seed ^ 0x9e3779b9);
   const world = WORLDS.find((w) => w.id === profile.world) ?? WORLDS[0];
@@ -699,7 +700,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
   }
 
   function pickQuestion(level?: number): Question {
-    const bank = BANKS[s.path!];
+    const bank = banks[s.path!] ?? [];
     const max = level ?? (s.realm <= 2 ? 1 : s.realm <= 5 ? 2 : 3);
     let pool = bank.filter((q) => q.level <= max && !s.asked.has(q.id));
     if (!pool.length) pool = bank.filter((q) => !s.asked.has(q.id));
@@ -759,6 +760,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
   }
 
   function runTrial(t: Trial, intro: string, choiceText?: string) {
+    if (!banks[s.path!]?.length) return; // ngân hàng trống (không nên xảy ra): bỏ qua khảo hạch
     let correct = 0;
     for (let i = 0; i < t.count; i++) if (ask(t.title, intro, `${i + 1}/${t.count}`, t.level)) correct++;
     const passed = correct >= t.pass;
@@ -771,7 +773,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[]): 
 
   // Vấn tâm: một câu trước mỗi bình cảnh lớn. Đúng → +10% cho lần đột phá kế tiếp.
   function heartTrial() {
-    if (!s.path || s.heartAskedAt === s.realm) return;
+    if (!s.path || s.heartAskedAt === s.realm || !banks[s.path]?.length) return;
     s.heartAskedAt = s.realm;
     const ok = ask("Vấn tâm", "Trước bình cảnh, đạo tâm phải vững. Một câu hỏi hiện lên trong thức hải — đáp đúng thì lần đột phá này thêm phần chắc chắn.", "1/1");
     if (ok) {

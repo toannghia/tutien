@@ -56,6 +56,20 @@ Game mô phỏng một đời tu tiên. Chạy trên Cloudflare Workers + D1, d�
   - hệ thống: số ngày giữ tài khoản khách.
 - Cấu hình lối chơi được **chụp vào mỗi kiếp lúc tạo**, nên đổi chỉ số chỉ ảnh hưởng kiếp mới; các kiếp đang chơi vẫn phát lại đúng.
 
+## Quản lý câu hỏi (admin)
+
+Tab **Câu hỏi** trong `/#/admin`:
+- lọc theo đạo đồ, cấp độ, nội dung; thêm / sửa / xoá / khôi phục câu hỏi (2–6 phương án, lời giảng);
+- xuất và nhập JSON (`{ "items": [{ path, level, prompt, options: [...], answer: <chỉ số>, explain }] }`). Khi nhập, chỉ cần một câu lỗi là không câu nào được nhập.
+
+**Ngân hàng câu hỏi nằm trong D1 và có phiên bản** (`questions`, `quiz_meta`; migration 0005 đưa các câu trong code vào làm phiên bản 1):
+- Mỗi thay đổi tạo một phiên bản mới, dòng cũ không bao giờ bị ghi đè: sửa = ẩn dòng cũ và thêm dòng mới cùng `family` và `ord`; xoá = ẩn.
+- Mỗi kiếp lưu `profile.qv` (phiên bản lúc tạo) và luôn phát lại bằng đúng ngân hàng đó, nên sửa câu hỏi không làm hỏng kiếp đang chơi. Kiếp cũ chưa có `qv` thì dùng ngân hàng trong code.
+- Trận luận đạo lưu nguyên câu hỏi trong phòng đấu.
+- Mỗi đạo đồ phải giữ tối thiểu 6 câu.
+
+Các file `src/game/quiz/*.ts` giờ chỉ còn là dữ liệu gốc (phiên bản 1) và ngân hàng dự phòng cho kiếp cũ. **Muốn thêm câu hỏi, hãy dùng trang admin**, không sửa các file này.
+
 ## Thêm nội dung
 
 Mỗi sự kiện được khai báo bằng `ev(id, tiêu đề, mô tả, [cảnh giới min, max], { weight, maxPerLife, cooldown, cond, effects | choices })`. Hiệu ứng `resources` tự nhân theo cảnh giới. Sau khi thêm hoặc sửa sự kiện, chạy:

@@ -336,6 +336,33 @@ table.mini td, table.mini th { padding: 2px 6px; border-bottom: 1px solid var(--
 .sect-power b { display: block; font-family: var(--serif); font-size: 20px; font-weight: 500; }
 .sect-power small { color: var(--muted); font-size: 11px; }
 
+/* ---------- Quản trị câu hỏi ---------- */
+.qa-counts td, .qa-counts th { padding: 6px 8px; }
+.qa-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 8px; align-items: center; }
+.qa-toolbar select, .qa-toolbar input[type="search"], .qa-form select, .qa-form textarea, .qa-opt input[type="text"] { background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; font: 15px var(--sans); }
+.qa-toolbar input[type="search"] { flex: 1 1 240px; min-width: 0; }
+.qa-del { display: flex; gap: 6px; align-items: center; font-size: 14px; cursor: pointer; }
+.qa-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+.qa-import { cursor: pointer; }
+.qa-list { display: grid; gap: 10px; }
+.qa-item { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 12px 14px; }
+.qa-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.qa-lv { font-size: 11px; font-weight: 600; border-radius: 99px; padding: 1px 8px; border: 1px solid var(--line); }
+.qa-lv.lv1 { color: var(--good); border-color: color-mix(in srgb, var(--good) 50%, transparent); }
+.qa-lv.lv2 { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 50%, transparent); }
+.qa-lv.lv3 { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 50%, transparent); }
+.qa-prompt { font-family: var(--serif); font-size: 16px; margin: 6px 0; }
+.qa-opts { margin: 0 0 6px; padding-left: 22px; font-size: 14px; color: var(--ink-2); columns: 2; }
+.qa-opts li.right { color: var(--good); font-weight: 600; }
+.qa-row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+.btn.danger { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+.qa-form textarea { width: 100%; resize: vertical; }
+.qa-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.qa-levels { display: flex; gap: 12px; padding-top: 6px; }
+.qa-opt { display: grid; grid-template-columns: 22px 1fr 34px; gap: 6px; align-items: center; margin-bottom: 6px; }
+.qa-opt input[type="radio"] { width: 18px; height: 18px; accent-color: var(--good); }
+@media (max-width: 600px) { .qa-opts { columns: 1; } .qa-grid { grid-template-columns: 1fr; } }
+
 /* ---------- Vạn Giới Đồ ---------- */
 .wm-host { margin: 14px 0 8px; }
 .wm { position: relative; height: min(70vh, 680px); border-radius: 12px; overflow: hidden; border: 6px solid #6e4524; box-shadow: inset 0 0 0 2px #8a5a30, 0 10px 30px rgb(0 0 0 / .25); background: #b5cfcf; }

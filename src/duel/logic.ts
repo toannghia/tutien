@@ -49,12 +49,12 @@ export function eloDelta(ra: number, rb: number, score: number, k = DUEL.k) {
 // ---------------------------------------------------------------- Đề
 
 /** Chọn N câu từ mọi ngân hàng, độ khó tăng dần (1 → 3), không trùng. */
-export function pickDuelQuestions(rand: () => number = Math.random, count = DUEL.questions): Question[] {
-  const all = Object.values(BANKS).flat();
+export function pickDuelQuestions(rand: () => number = Math.random, count = DUEL.questions, all: Question[] = Object.values(BANKS).flat()): Question[] {
   const used = new Set<string>();
   const levels = count === DUEL.questions ? [...DUEL.levels] : Array.from({ length: count }, (_, i) => 1 + Math.floor((i * 3) / count));
   return levels.map((level) => {
-    const pool = all.filter((q) => q.level === level && !used.has(q.id));
+    let pool = all.filter((q) => q.level === level && !used.has(q.id));
+    if (!pool.length) pool = all.filter((q) => !used.has(q.id)); // thiếu câu đúng cấp độ thì lấy cấp khác
     const q = pool[Math.floor(rand() * pool.length)];
     used.add(q.id);
     return q;

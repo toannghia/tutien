@@ -1898,10 +1898,11 @@ async function renderAdmin(tab = "report", days = Number(store("tt-admin-days") 
     return;
   }
   $view.innerHTML = `<div class="page admin"><h1>Quản trị</h1>
-    <div class="tabs"><button data-t="report" class="${tab === "report" ? "on" : ""}">Báo cáo</button><button data-t="settings" class="${tab === "settings" ? "on" : ""}">Cấu hình chỉ số</button></div>
+    <div class="tabs"><button data-t="report" class="${tab === "report" ? "on" : ""}">Báo cáo</button><button data-t="settings" class="${tab === "settings" ? "on" : ""}">Cấu hình chỉ số</button><button data-t="questions" class="${tab === "questions" ? "on" : ""}">Câu hỏi</button></div>
     <div id="adminBody"><div class="empty">Đang tải…</div></div></div>`;
   $view.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => renderAdmin(b.dataset.t, days)));
   if (tab === "settings") return renderAdminSettings();
+  if (tab === "questions") return renderAdminQuestions();
 
   const r = await api(`/api/admin/report?days=${days}`);
   const sumDuel = r.series.duelsRanked.map((p, i) => ({ d: p.d, n: p.n + r.series.duelsBot[i].n + r.series.duelsFriendly[i].n }));
@@ -2002,6 +2003,201 @@ async function renderAdminSettings() {
   };
   document.getElementById("resetDefaults").onclick = () => {
     if (confirm("Đưa mọi chỉ số về mặc định?")) save({ ...s.defaults });
+  };
+}
+
+// ---------------------------------------------------------------- Quản trị: ngân hàng câu hỏi
+
+const qa = { path: "", level: "", q: "", deleted: false, shown: 30 };
+
+async function renderAdminQuestions() {
+  const body = document.getElementById("adminBody");
+  const data = await api(`/api/admin/questions${qa.deleted ? "?deleted=1" : ""}`);
+  const paths = app.codex.paths;
+  const pathName = (id) => paths.find((p) => p.id === id)?.name ?? id;
+  const needle = qa.q.trim().toLowerCase();
+  const items = data.items.filter(
+    (it) => (!qa.path || it.path === qa.path) && (!qa.level || String(it.level) === qa.level) && (!needle || `${it.prompt} ${it.options.join(" ")} ${it.explain}`.toLowerCase().includes(needle)),
+  );
+  const countRow = (p) => {
+    const c = data.counts[p.id] ?? [0, 0, 0];
+    return `<tr><td>${esc(p.glyph)} ${esc(p.name)}</td><td>${c[0]}</td><td>${c[1]}</td><td>${c[2]}</td><td><b>${c[0] + c[1] + c[2]}</b></td></tr>`;
+  };
+  body.innerHTML = `
+    <p class="muted small">Phiên bản ngân hàng hiện tại: <b>v${data.version}</b>. Thay đổi áp dụng cho kiếp và trận luận đạo <b>mới</b>; kiếp đang chơi giữ nguyên bộ câu hỏi lúc bắt đầu.</p>
+    <table class="table qa-counts"><tr><th>Đạo đồ</th><th>Cấp 1</th><th>Cấp 2</th><th>Cấp 3</th><th>Tổng</th></tr>${paths.map(countRow).join("")}</table>
+    <div class="qa-toolbar">
+      <select id="qaPath" aria-label="Đạo đồ"><option value="">Mọi đạo đồ</option>${paths.map((p) => `<option value="${p.id}" ${qa.path === p.id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select>
+      <select id="qaLevel" aria-label="Cấp độ"><option value="">Mọi cấp</option>${[1, 2, 3].map((l) => `<option value="${l}" ${qa.level === String(l) ? "selected" : ""}>Cấp ${l}</option>`).join("")}</select>
+      <input id="qaSearch" type="search" placeholder="Tìm trong câu hỏi, đáp án, lời giảng…" value="${esc(qa.q)}"/>
+      <label class="qa-del"><input type="checkbox" id="qaDeleted" ${qa.deleted ? "checked" : ""}/> Đã xoá</label>
+    </div>
+    <div class="qa-actions">
+      <button class="btn" id="qaAdd">+ Thêm câu hỏi</button>
+      <a class="btn ghost" href="/api/admin/questions/export" download>Xuất JSON</a>
+      <label class="btn ghost qa-import">Nhập JSON<input type="file" id="qaFile" accept="application/json,.json" hidden/></label>
+    </div>
+    <p class="muted small">${fmt(items.length)} câu${qa.deleted ? " đã xoá" : ""} khớp bộ lọc.</p>
+    <div class="qa-list">${items
+      .slice(0, qa.shown)
+      .map(
+        (it) => `<article class="qa-item">
+          <div class="qa-meta"><span class="qa-lv lv${it.level}">Cấp ${it.level}</span><span class="muted small">${esc(pathName(it.path))}</span><span class="muted small">· sửa ${new Date(it.updatedAt).toLocaleDateString("vi-VN")}${it.updatedBy && it.updatedBy !== "seed" ? ` bởi ${esc(it.updatedBy)}` : ""}</span></div>
+          <div class="qa-prompt">${esc(it.prompt)}</div>
+          <ol class="qa-opts">${it.options.map((o, i) => `<li class="${i === it.answer ? "right" : ""}">${esc(o)}${i === it.answer ? " ✓" : ""}</li>`).join("")}</ol>
+          <details class="small"><summary>Lời giảng</summary>${esc(it.explain)}</details>
+          <div class="qa-row-actions">${
+            qa.deleted
+              ? `<button class="btn ghost small" data-restore="${esc(it.id)}">Khôi phục</button>`
+              : `<button class="btn ghost small" data-edit="${esc(it.id)}">Sửa</button><button class="btn ghost small danger" data-del="${esc(it.id)}">Xoá</button>`
+          }</div>
+        </article>`,
+      )
+      .join("")}</div>
+    ${items.length > qa.shown ? `<p style="text-align:center"><button class="btn ghost" id="qaMore">Xem thêm ${fmt(Math.min(30, items.length - qa.shown))} câu</button></p>` : ""}`;
+
+  const rerender = () => renderAdminQuestions();
+  body.querySelector("#qaPath").onchange = (e) => ((qa.path = e.target.value), (qa.shown = 30), rerender());
+  body.querySelector("#qaLevel").onchange = (e) => ((qa.level = e.target.value), (qa.shown = 30), rerender());
+  body.querySelector("#qaDeleted").onchange = (e) => ((qa.deleted = e.target.checked), (qa.shown = 30), rerender());
+  let t;
+  body.querySelector("#qaSearch").oninput = (e) => {
+    clearTimeout(t);
+    t = setTimeout(() => {
+      qa.q = e.target.value;
+      qa.shown = 30;
+      rerender().then(() => {
+        const el = document.getElementById("qaSearch");
+        el.focus();
+        el.setSelectionRange(el.value.length, el.value.length);
+      });
+    }, 300);
+  };
+  body.querySelector("#qaMore")?.addEventListener("click", () => ((qa.shown += 30), rerender()));
+  body.querySelector("#qaAdd").onclick = () => openQuestionEditor(null, rerender);
+  body.querySelectorAll("[data-edit]").forEach((b) => (b.onclick = () => openQuestionEditor(items.find((x) => x.id === b.dataset.edit), rerender)));
+  body.querySelectorAll("[data-del]").forEach(
+    (b) =>
+      (b.onclick = async () => {
+        const it = items.find((x) => x.id === b.dataset.del);
+        if (!confirm(`Xoá câu hỏi này?\n\n"${it.prompt}"\n\nKiếp đang chơi vẫn dùng được; có thể khôi phục sau.`)) return;
+        try {
+          await api(`/api/admin/questions/${encodeURIComponent(it.id)}`, { method: "DELETE" });
+          toast("Đã xoá câu hỏi.");
+          rerender();
+        } catch (e) {
+          toast(e.message);
+        }
+      }),
+  );
+  body.querySelectorAll("[data-restore]").forEach(
+    (b) =>
+      (b.onclick = async () => {
+        try {
+          await api(`/api/admin/questions/${encodeURIComponent(b.dataset.restore)}/restore`, { method: "POST", body: {} });
+          toast("Đã khôi phục câu hỏi.");
+          rerender();
+        } catch (e) {
+          toast(e.message);
+        }
+      }),
+  );
+  body.querySelector("#qaFile").onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    let json;
+    try {
+      json = JSON.parse(await file.text());
+    } catch {
+      return toast("File không phải JSON hợp lệ.");
+    }
+    const items = Array.isArray(json) ? json : json.items;
+    if (!confirm(`Nhập ${items?.length ?? 0} câu hỏi mới vào ngân hàng?`)) return;
+    const res = await fetch("/api/admin/questions/import", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items }) });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      toast(`Đã nhập ${data.added} câu hỏi.`);
+      return rerender();
+    }
+    const rows = (data.rows ?? []).map((r) => `Câu ${r.row}: ${Object.values(r.errors).join(", ")}`).join("\n");
+    alert(`${data.message ?? "Không nhập được."}\n\n${rows}`);
+  };
+}
+
+function openQuestionEditor(item, onSaved) {
+  const paths = app.codex.paths;
+  const isEdit = !!item;
+  const v = item ?? { path: qa.path || paths[0].id, level: Number(qa.level) || 1, prompt: "", options: ["", "", "", ""], answer: 0, explain: "" };
+  const m = openModal(`<div class="head"><span>${isEdit ? "Sửa câu hỏi" : "Thêm câu hỏi"}</span><button class="icon-btn" data-close>×</button></div>
+    <form class="body qa-form" id="qaForm">
+      <div class="qa-grid">
+        <div class="field"><label>Đạo đồ</label><select name="path" ${isEdit ? "disabled" : ""}>${paths.map((p) => `<option value="${p.id}" ${v.path === p.id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}</select><div class="err" data-err="path"></div></div>
+        <div class="field"><label>Cấp độ</label><div class="qa-levels">${[1, 2, 3].map((l) => `<label><input type="radio" name="level" value="${l}" ${v.level === l ? "checked" : ""}/> Cấp ${l}</label>`).join("")}</div><div class="err" data-err="level"></div></div>
+      </div>
+      <div class="field"><label>Câu hỏi</label><textarea name="prompt" rows="2" maxlength="300">${esc(v.prompt)}</textarea><div class="err" data-err="prompt"></div></div>
+      <div class="field"><label>Phương án <span class="muted">(chọn ● ở đáp án đúng; 2–6 phương án)</span></label><div id="qaOpts"></div>
+        <button type="button" class="btn ghost small" id="qaAddOpt">+ Thêm phương án</button><div class="err" data-err="options"></div><div class="err" data-err="answer"></div></div>
+      <div class="field"><label>Lời giảng (hiện sau khi trả lời)</label><textarea name="explain" rows="3" maxlength="600">${esc(v.explain)}</textarea><div class="err" data-err="explain"></div></div>
+      ${isEdit ? `<p class="muted small">Sửa sẽ tạo phiên bản mới; kiếp đang chơi vẫn dùng bản cũ.</p>` : ""}
+      <button class="btn" type="submit" style="width:100%">${isEdit ? "Lưu thay đổi" : "Thêm vào ngân hàng"}</button>
+    </form>`);
+  const opts = [...v.options];
+  let answer = v.answer;
+  const drawOpts = () => {
+    const box = m.querySelector("#qaOpts");
+    box.innerHTML = opts
+      .map(
+        (o, i) => `<div class="qa-opt"><input type="radio" name="answer" value="${i}" ${i === answer ? "checked" : ""} aria-label="Đáp án đúng"/><input type="text" data-i="${i}" value="${esc(o)}" maxlength="120" placeholder="Phương án ${i + 1}"/>${opts.length > 2 ? `<button type="button" class="icon-btn" data-rm="${i}" aria-label="Bỏ phương án">×</button>` : ""}</div>`,
+      )
+      .join("");
+    box.querySelectorAll('input[type="text"]').forEach((el) => (el.oninput = () => (opts[Number(el.dataset.i)] = el.value)));
+    box.querySelectorAll('input[type="radio"]').forEach((el) => (el.onchange = () => (answer = Number(el.value))));
+    box.querySelectorAll("[data-rm]").forEach(
+      (b) =>
+        (b.onclick = () => {
+          const i = Number(b.dataset.rm);
+          opts.splice(i, 1);
+          if (answer === i) answer = 0;
+          else if (answer > i) answer--;
+          drawOpts();
+        }),
+    );
+    m.querySelector("#qaAddOpt").style.display = opts.length >= 6 ? "none" : "";
+  };
+  drawOpts();
+  m.querySelector("#qaAddOpt").onclick = () => {
+    opts.push("");
+    drawOpts();
+  };
+  m.querySelector("#qaForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const f = e.target;
+    const payload = {
+      path: isEdit ? item.path : f.elements.path.value,
+      level: Number(f.querySelector('input[name="level"]:checked')?.value),
+      prompt: f.elements.prompt.value,
+      options: opts,
+      answer,
+      explain: f.elements.explain.value,
+    };
+    m.querySelectorAll("[data-err]").forEach((x) => (x.textContent = ""));
+    const res = await fetch(isEdit ? `/api/admin/questions/${encodeURIComponent(item.id)}` : "/api/admin/questions", {
+      method: isEdit ? "PUT" : "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      closeModal();
+      toast(isEdit ? "Đã lưu câu hỏi." : "Đã thêm câu hỏi.");
+      return onSaved();
+    }
+    for (const [k, msg] of Object.entries(data.errors ?? {})) {
+      const el = m.querySelector(`[data-err="${k}"]`);
+      if (el) el.textContent = msg;
+    }
+    if (!data.errors) toast(data.message ?? "Không lưu được.");
   };
 }
 

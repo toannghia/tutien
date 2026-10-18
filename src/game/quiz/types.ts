@@ -11,7 +11,7 @@ export type Question = {
 };
 
 // FNV-1a → chuỗi base36 ngắn
-function hash(s: string) {
+export function hash(s: string) {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);
@@ -24,4 +24,10 @@ function hash(s: string) {
 export function q(id: string, level: 1 | 2 | 3, prompt: string, [right, ...wrong]: string[], explain: string): Question {
   const options = [right, ...wrong].map((text) => ({ id: hash(`${id}|${text}`), text }));
   return { id, level, prompt, options, answer: options[0].id, explain };
+}
+
+/** Tạo câu hỏi từ dữ liệu admin nhập (đáp án đúng theo chỉ số). */
+export function makeQuestion(id: string, level: 1 | 2 | 3, prompt: string, options: string[], answerIndex: number, explain: string): Question {
+  const opts = options.map((text) => ({ id: hash(`${id}|${text}`), text }));
+  return { id, level, prompt, options: opts, answer: opts[answerIndex].id, explain };
 }
