@@ -1047,28 +1047,138 @@ async function renderHistoryDetail(id) {
 
 // ---------------------------------------------------------------- Bảng xếp hạng
 
+// Bộ lọc giới diện / môn phái của bảng cao thủ (giữ trong phiên)
+const rankFilter = { world: "", sect: "" };
+
 async function renderRank(by = "realm") {
-  const duel = by === "duel";
-  const rows = await api(duel ? "/api/duel/leaderboard" : `/api/leaderboard?by=${by}`);
+  const c = app.codex;
   const tab = (k, label) => `<button data-by="${k}" class="${by === k ? "on" : ""}">${label}</button>`;
-  const item = (r, i) =>
-    duel
-      ? `<div class="item ${r.userId === app.me.id ? "me" : ""}">
-          <div class="no ${i < 3 ? "top" : ""}">${i + 1}</div>
-          <div class="main"><div class="title">${esc(r.name)}${r.userId === app.me.id ? ' <span class="muted small">(ngươi)</span>' : ""}</div>
-            <div class="sub">${r.wins} thắng · ${r.losses} thua · ${r.draws} hòa</div></div>
-          <div style="text-align:right"><div class="realm" style="--hue:45">${fmt(r.rating)}</div><div class="end">${esc(rankTitle(r.rating))}</div></div></div>`
-      : `<div class="item ${r.userId === app.me.id ? "me" : ""}">
-          <div class="no ${i < 3 ? "top" : ""}">${i + 1}</div>
-          <div class="main"><div class="title">${esc(r.name)}${r.userId === app.me.id ? ' <span class="muted small">(ngươi)</span>' : ""}</div>
-            <div class="sub">${fmt(r.age)} tuổi · ${esc(byId(app.codex.worlds, r.world)?.name)}</div></div>
-          <div style="text-align:right"><div class="realm" style="--hue:${HUES[r.best_realm]}">${esc(app.codex.realms[r.best_realm].name)}</div><div class="end">${esc(r.ending_reason)}</div></div></div>`;
-  $view.innerHTML = `<div class="page"><h1>Bảng xếp hạng</h1><p class="muted">${
-    duel ? "Điểm Đạo vị từ luận đạo trực tiếp. Chỉ tài khoản đã lưu tiến trình mới được xếp hạng." : "Mỗi tu sĩ chỉ tính kiếp tốt nhất. Khách hiện là “Vô danh tu sĩ” cho đến khi lưu tiến trình."
-  }</p>
-    <div class="tabs">${tab("realm", "Cảnh giới cao nhất")}${tab("age", "Sống lâu nhất")}${tab("duel", "Đạo vị")}</div>
-    ${rows.length ? `<div class="list">${rows.map(item).join("")}</div>` : `<div class="empty">${duel ? "Chưa có ai luận đạo." : "Chưa có ai khép lại một kiếp."}</div>`}</div>`;
-  $view.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => renderRank(b.dataset.by)));
+  const tabs = `<div class="tabs rank-tabs">${tab("realm", "Cảnh giới")}${tab("age", "Sống lâu")}${tab("duel", "Đạo vị")}${tab("sects", "Môn phái")}${tab("worlds", "Giới diện")}</div>`;
+  const page = (intro, body) => {
+    $view.innerHTML = `<div class="page rank-page"><h1>Bảng xếp hạng</h1>${tabs}<p class="muted small rank-intro">${intro}</p>${body}</div>`;
+    $view.querySelectorAll(".rank-tabs button").forEach((b) => (b.onclick = () => renderRank(b.dataset.by)));
+  };
+  const me = (r) => (r.userId === app.me.id ? ' <span class="muted small">(ngươi)</span>' : "");
+  // Chuyển sang bảng cao thủ, lọc sẵn theo giới / phái
+  const wireJump = () =>
+    $view.querySelectorAll("[data-jump-world],[data-jump-sect]").forEach(
+      (el) =>
+        (el.onclick = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          rankFilter.world = el.dataset.jumpWorld ?? (el.dataset.jumpSect ? byId(c.sects, el.dataset.jumpSect)?.world ?? "" : "");
+          rankFilter.sect = el.dataset.jumpSect ?? "";
+          renderRank("realm");
+        }),
+    );
+
+  if (by === "duel") {
+    const rows = await api("/api/duel/leaderboard");
+    page(
+      "Điểm Đạo vị từ luận đạo trực tiếp. Chỉ tài khoản đã lưu tiến trình mới được xếp hạng.",
+      rows.length
+        ? `<div class="list">${rows
+            .map(
+              (r, i) => `<div class="item ${r.userId === app.me.id ? "me" : ""}"><div class="no ${i < 3 ? "top" : ""}">${i + 1}</div>
+                <div class="main"><div class="title">${esc(r.name)}${me(r)}</div><div class="sub">${r.wins} thắng · ${r.losses} thua · ${r.draws} hòa</div></div>
+                <div style="text-align:right"><div class="realm" style="--hue:45">${fmt(r.rating)}</div><div class="end">${esc(rankTitle(r.rating))}</div></div></div>`,
+            )
+            .join("")}</div>`
+        : `<div class="empty">Chưa có ai luận đạo.</div>`,
+    );
+    return;
+  }
+
+  if (by === "sects") {
+    const [world, sects] = await Promise.all([api("/api/world"), api("/api/sects")]);
+    const metric = store("tt-rank-sect") || "power";
+    const pol = new Map(sects.map((x) => [x.id, x]));
+    const rows = world.worlds
+      .flatMap((w) => w.sects.map((x) => ({ ...x, world: w.id, ...(pol.get(x.id) ? { points: pol.get(x.id).points, disciples: pol.get(x.id).disciples, chief: pol.get(x.id).chief } : {}) })))
+      .map((x) => ({ ...x, power: Number(x.power) || 0, points: Number(x.points) || 0, members: Number(x.members) || 0 }));
+    const key = { power: "power", points: "points", members: "members" }[metric] ?? "power";
+    rows.sort((a, b) => b[key] - a[key] || b.power - a.power || b.members - a.members);
+    const unit = { power: "thế lực", points: "điểm tỷ võ", members: "đệ tử" }[key];
+    page(
+      "Xếp hạng 24 môn phái của vạn giới. Thế lực = tổng (cảnh giới + 1)² kiếp tốt nhất mỗi đệ tử; điểm tỷ võ do đệ tử tại thế giành được trong luận đạo.",
+      `<div class="range sect-metric">${[["power", "Thế lực"], ["points", "Điểm tỷ võ"], ["members", "Số đệ tử"]]
+        .map(([k, l]) => `<button data-m="${k}" class="${k === key ? "on" : ""}">${l}</button>`)
+        .join("")}</div>
+      <div class="list sect-board">${rows
+        .map((s, i) => {
+          const d = byId(c.sects, s.id);
+          return `<a class="item link" href="#/sects/${s.id}"><div class="no ${i < 3 && s[key] ? "top" : ""}">${i + 1}</div>
+            <span class="sglyph">${esc(d?.glyph ?? "")}</span>
+            <div class="main"><div class="title">${esc(d?.name ?? s.id)}</div>
+              <div class="sub">${esc(byId(c.worlds, s.world)?.name ?? "")} · ${fmt(s.members)} đệ tử · đỉnh cao ${esc(s.topRealm == null ? "—" : c.realms[s.topRealm]?.name ?? "—")}</div>
+              <div class="sub">${s.chief ? `掌 <b>${esc(s.chief.name)}</b>` : s.leader ? `Mạnh nhất: <b>${esc(s.leader.name)}</b>` : "Chưa có đệ tử."} · <span class="linkish" data-jump-sect="${s.id}">Cao thủ ›</span></div></div>
+            <div class="sect-power"><b>${fmt(s[key])}</b><small>${unit}</small></div></a>`;
+        })
+        .join("")}</div>`,
+    );
+    $view.querySelectorAll(".sect-metric button").forEach((b) => (b.onclick = () => (store("tt-rank-sect", b.dataset.m), renderRank("sects"))));
+    wireJump();
+    return;
+  }
+
+  if (by === "worlds") {
+    const world = await api("/api/world");
+    const rows = world.worlds.slice().sort((a, b) => b.players - a.players || (b.topRealm ?? -1) - (a.topRealm ?? -1));
+    page(
+      "Tám giới diện xếp theo số tu sĩ đã luân hồi vào. Bấm “Cao thủ” để xem bảng xếp hạng riêng của giới.",
+      `<div class="list world-board">${rows
+        .map((w, i) => {
+          const d = byId(c.worlds, w.id);
+          const look = WORLD_LOOK[w.id] ?? { glyph: "界", hue: 120 };
+          return `<div class="item"><div class="no ${i < 3 && w.players ? "top" : ""}">${i + 1}</div>
+            <div class="main"><div class="title"><span class="wglyph sm" style="--hue:${look.hue}">${look.glyph}</span> ${esc(d.name)}</div>
+              <div class="sub">${fmt(w.active)} đang tu hành · ${fmt(w.lives)} kiếp · thọ TB ${w.avgAge ? fmt(w.avgAge) : "—"} · cao nhất ${esc(w.topRealm == null ? "—" : c.realms[w.topRealm]?.name ?? "—")}</div>
+              <div class="sub">${w.top[0] ? `Cao thủ: <b>${esc(w.top[0].name)}</b> — ${esc(c.realms[w.top[0].realm]?.name ?? "")}` : "Chưa ai luân hồi vào giới này."} · <a href="#" data-jump-world="${w.id}">Cao thủ ›</a></div></div>
+            <div class="sect-power"><b>${fmt(w.players)}</b><small>tu sĩ</small></div></div>`;
+        })
+        .join("")}</div>`,
+    );
+    wireJump();
+    return;
+  }
+
+  // Bảng cao thủ (cảnh giới / sống lâu), lọc theo giới và môn phái
+  const q = new URLSearchParams({ by, ...(rankFilter.world ? { world: rankFilter.world } : {}), ...(rankFilter.sect ? { sect: rankFilter.sect } : {}) });
+  const rows = await api(`/api/leaderboard?${q}`);
+  const sectsOf = c.sects.filter((x) => !rankFilter.world || x.world === rankFilter.world);
+  const scope = rankFilter.sect ? byId(c.sects, rankFilter.sect)?.name : rankFilter.world ? byId(c.worlds, rankFilter.world)?.name : "";
+  page(
+    "Mỗi tu sĩ chỉ tính kiếp tốt nhất. Khách hiện là “Vô danh tu sĩ” cho đến khi lưu tiến trình.",
+    `<div class="rank-filter">
+      <select id="fWorld" aria-label="Lọc theo giới diện"><option value="">Mọi giới diện</option>${c.worlds.map((w) => `<option value="${w.id}" ${w.id === rankFilter.world ? "selected" : ""}>${esc(w.name)}</option>`).join("")}</select>
+      <select id="fSect" aria-label="Lọc theo môn phái"><option value="">Mọi môn phái</option>${sectsOf.map((x) => `<option value="${x.id}" ${x.id === rankFilter.sect ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select>
+      ${rankFilter.world || rankFilter.sect ? `<button class="btn ghost small" id="fClear">Bỏ lọc</button>` : ""}
+    </div>
+    ${rows.length
+      ? `<div class="list">${rows
+          .map(
+            (r, i) => `<div class="item ${r.userId === app.me.id ? "me" : ""}"><div class="no ${i < 3 ? "top" : ""}">${i + 1}</div>
+              <div class="main"><div class="title">${esc(r.name)}${me(r)}</div>
+                <div class="sub">${fmt(r.age)} tuổi · ${esc(byId(c.worlds, r.world)?.name ?? "")}${r.sect_id ? ` · ${r.sect_rank === "outcast" ? "phản đồ " : ""}${esc(byId(c.sects, r.sect_id)?.name ?? "")}` : " · tán tu"}</div></div>
+              <div style="text-align:right"><div class="realm" style="--hue:${HUES[r.best_realm]}">${esc(c.realms[r.best_realm].name)}</div><div class="end">${esc(r.ending_reason)}</div></div></div>`,
+          )
+          .join("")}</div>`
+      : `<div class="empty">${scope ? `Chưa ai ở ${esc(scope)} khép lại một kiếp.` : "Chưa có ai khép lại một kiếp."}</div>`}`,
+  );
+  document.getElementById("fWorld").onchange = (e) => {
+    rankFilter.world = e.target.value;
+    if (rankFilter.sect && byId(c.sects, rankFilter.sect)?.world !== rankFilter.world) rankFilter.sect = "";
+    renderRank(by);
+  };
+  document.getElementById("fSect").onchange = (e) => {
+    rankFilter.sect = e.target.value;
+    if (rankFilter.sect) rankFilter.world = byId(c.sects, rankFilter.sect)?.world ?? rankFilter.world;
+    renderRank(by);
+  };
+  document.getElementById("fClear")?.addEventListener("click", () => {
+    rankFilter.world = rankFilter.sect = "";
+    renderRank(by);
+  });
 }
 
 // ---------------------------------------------------------------- Cẩm nang

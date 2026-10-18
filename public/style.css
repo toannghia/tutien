@@ -262,9 +262,9 @@ nav.links a.active, nav.links a:hover { background: var(--bg-2); color: var(--in
 .fact details.explain summary { cursor: pointer; color: var(--ink-2); }
 
 /* ---------- Quản trị ---------- */
-.admin .range { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
-.admin .range button { background: none; border: 1px solid var(--line); border-radius: 99px; padding: 5px 12px; cursor: pointer; color: var(--ink-2); font-size: 13px; }
-.admin .range button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.admin .range, .sect-metric { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+.admin .range button, .sect-metric button { background: none; border: 1px solid var(--line); border-radius: 99px; padding: 5px 12px; cursor: pointer; color: var(--ink-2); font-size: 13px; }
+.admin .range button.on, .sect-metric button.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
 .stat { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 12px 14px; }
 .stat small { display: block; color: var(--muted); font-size: 12px; }
@@ -736,3 +736,17 @@ button, a, .option { touch-action: manipulation; -webkit-tap-highlight-color: tr
 }
 .sect-board .item { grid-template-columns: 36px 30px 1fr auto; }
 @media (max-width: 900px) { .sect-board .item { grid-template-columns: 26px 24px 1fr; gap: 8px; } .sect-board .item .sect-power { grid-column: 3; } }
+
+/* ---------- Bảng xếp hạng: lọc, môn phái, giới diện */
+.rank-filter { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 14px 0 4px; }
+.rank-filter select { background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; padding: 9px 10px; font: 14px var(--sans); max-width: 100%; }
+.sect-metric { margin: 14px 0 4px; }
+.linkish { text-decoration: underline; cursor: pointer; color: var(--ink); }
+.wglyph.sm { font-size: 16px; width: auto; height: auto; display: inline; }
+.world-board .item { grid-template-columns: 44px 1fr auto; }
+@media (max-width: 900px) {
+  .rank-tabs button { padding: 8px 10px; font-size: 13px; }
+  .rank-filter select { flex: 1 1 140px; }
+  .world-board .item { grid-template-columns: 26px 1fr auto; gap: 8px; }
+}
+.rank-intro { margin: -4px 0 10px; }

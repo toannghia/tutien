@@ -192,14 +192,21 @@ app.get("/api/game/runs", async (c) => {
 // ?by=realm (mặc định): cảnh giới rồi tuổi · ?by=age: sống lâu nhất
 app.get("/api/leaderboard", async (c) => {
   const order = c.req.query("by") === "age" ? "r.age DESC, r.best_realm DESC" : "r.best_realm DESC, r.age DESC";
+  // Lọc theo giới diện / môn phái (chỉ nhận id có trong dữ liệu game)
+  const world = WORLDS.some((w) => w.id === c.req.query("world")) ? c.req.query("world")! : null;
+  const sect = SECTS.some((x) => x.id === c.req.query("sect")) ? c.req.query("sect")! : null;
+  const where = ["r.status = 'finished'"];
+  const binds: string[] = [];
+  if (world) { where.push("r.world = ?"); binds.push(world); }
+  if (sect) { where.push("r.sect_id = ? AND r.sect_rank IN ('member', 'elder')"); binds.push(sect); }
   const { results } = await c.env.DB.prepare(
-    `SELECT name, isAnonymous, user_id, best_realm, age, world, ending_reason FROM (
-       SELECT u.name, u.isAnonymous, r.user_id, r.best_realm, r.age, r.world, r.ending_reason,
+    `SELECT name, isAnonymous, user_id, best_realm, age, world, sect_id, sect_rank, ending_reason FROM (
+       SELECT u.name, u.isAnonymous, r.user_id, r.best_realm, r.age, r.world, r.sect_id, r.sect_rank, r.ending_reason,
               ROW_NUMBER() OVER (PARTITION BY r.user_id ORDER BY ${order}, r.ended_at) AS rn
        FROM runs r JOIN "user" u ON u.id = r.user_id
-       WHERE r.status = 'finished'
+       WHERE ${where.join(" AND ")}
      ) r WHERE rn = 1 ORDER BY ${order} LIMIT 50`,
-  ).all<{ name: string; isAnonymous: number; user_id: string }>();
+  ).bind(...binds).all<{ name: string; isAnonymous: number; user_id: string }>();
   return c.json(results.map(({ user_id, isAnonymous, ...r }) => ({ ...r, name: isAnonymous ? GUEST_NAME : r.name, userId: user_id })));
 });
 

@@ -41,6 +41,10 @@ Game mô phỏng một đời tu tiên. Chạy trên Cloudflare Workers + D1, d�
 - **Đạo vị (Elo, K = 32)** chỉ áp dụng cho tài khoản đã đăng ký. Khách được đấu thử nhưng không được tính điểm. Bậc danh hiệu: Sơ học → Nhập thất → Chân truyền → Tông sư → Đạo tôn.
 - **Deploy:** Durable Objects được tạo tự động khi `wrangler deploy` (migration `v1` trong `wrangler.jsonc`). Chạy thêm `npm run db:migrate:remote` để tạo bảng `ratings`, `duels`.
 
+## Bảng xếp hạng
+
+Năm tab: **Cảnh giới**, **Sống lâu** (mỗi tu sĩ tính kiếp tốt nhất, lọc được theo giới diện và môn phái qua `/api/leaderboard?by=&world=&sect=`), **Đạo vị** (luận đạo), **Môn phái** (24 phái xếp theo thế lực / điểm tỷ võ / số đệ tử) và **Giới diện** (8 giới xếp theo số tu sĩ). Nút "Cao thủ ›" ở bảng phái/giới mở bảng cao thủ đã lọc sẵn.
+
 ## Bản đồ vạn giới
 
 `/#/world`: mỗi giới diện có số tu sĩ, số kiếp, số người đang tu hành, tuổi thọ trung bình và cao nhất, cùng cao thủ của giới. Mỗi giới có 3 môn phái, xếp hạng theo thế lực = tổng (cảnh giới + 1)² của kiếp tốt nhất mỗi đệ tử, và hiện người mạnh nhất mỗi phái. API `/api/world` được cache 60 giây.
