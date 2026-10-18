@@ -200,8 +200,9 @@ app.get("/api/leaderboard", async (c) => {
   if (world) { where.push("r.world = ?"); binds.push(world); }
   if (sect) { where.push("r.sect_id = ? AND r.sect_rank IN ('member', 'elder')"); binds.push(sect); }
   const { results } = await c.env.DB.prepare(
-    `SELECT name, isAnonymous, user_id, best_realm, age, world, sect_id, sect_rank, ending_reason FROM (
+    `SELECT name, isAnonymous, user_id, best_realm, age, world, sect_id, sect_rank, ending_reason, gender, seed FROM (
        SELECT u.name, u.isAnonymous, r.user_id, r.best_realm, r.age, r.world, r.sect_id, r.sect_rank, r.ending_reason,
+              json_extract(r.profile_json, '$.gender') AS gender, r.seed,
               ROW_NUMBER() OVER (PARTITION BY r.user_id ORDER BY ${order}, r.ended_at) AS rn
        FROM runs r JOIN "user" u ON u.id = r.user_id
        WHERE ${where.join(" AND ")}
@@ -384,8 +385,8 @@ app.get("/api/duel/me", async (c) => {
 // Bảng Đạo vị: chỉ tài khoản đã đăng ký, đã đấu ít nhất 1 trận
 app.get("/api/duel/leaderboard", async (c) => {
   const { results } = await c.env.DB.prepare(
-    `SELECT r.user_id AS userId, u.name, r.rating, r.wins, r.losses, r.draws
-     FROM ratings r JOIN "user" u ON u.id = r.user_id
+    `SELECT r.user_id AS userId, u.name, r.rating, r.wins, r.losses, r.draws, COALESCE(st.best_realm, 0) AS realm
+     FROM ratings r JOIN "user" u ON u.id = r.user_id LEFT JOIN user_stats st ON st.user_id = r.user_id
      WHERE u.isAnonymous = 0 OR u.isAnonymous IS NULL
      ORDER BY r.rating DESC, r.wins DESC LIMIT 50`,
   ).all();

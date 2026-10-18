@@ -1075,6 +1075,11 @@ async function renderRank(by = "realm") {
     $view.querySelectorAll(".rank-tabs button").forEach((b) => (b.onclick = () => renderRank(b.dataset.by)));
   };
   const me = (r) => (r.userId === app.me.id ? ' <span class="muted small">(ngươi)</span>' : "");
+  // Ảnh cấp bậc: chân dung theo cảnh giới (không rõ giới tính thì suy từ tên)
+  const rowAvatar = (realm, gender, name, seed) => {
+    const ns = nameSeed(name);
+    return `<span class="row-av">${avatarSvg(realm ?? 0, gender ?? (ns % 2 ? "female" : "male"), { seed: seed ?? ns, size: 40, animate: false, title: c.realms[realm ?? 0]?.name })}</span>`;
+  };
   // Chuyển sang bảng cao thủ, lọc sẵn theo giới / phái
   const wireJump = () =>
     $view.querySelectorAll("[data-jump-world],[data-jump-sect]").forEach(
@@ -1095,8 +1100,9 @@ async function renderRank(by = "realm") {
       rows.length
         ? `<div class="list">${rows
             .map(
-              (r, i) => `<div class="item ${r.userId === app.me.id ? "me" : ""}"><div class="no ${i < 3 ? "top" : ""}">${i + 1}</div>
-                <div class="main"><div class="title">${esc(r.name)}${me(r)}</div><div class="sub">${r.wins} thắng · ${r.losses} thua · ${r.draws} hòa</div></div>
+              (r, i) => `<div class="item has-av ${r.userId === app.me.id ? "me" : ""}"><div class="no ${i < 3 ? "top" : ""}">${i + 1}</div>
+                ${rowAvatar(r.realm, null, r.name)}
+                <div class="main"><div class="title">${esc(r.name)}${me(r)}</div><div class="sub">${esc(c.realms[r.realm]?.name ?? "")} · ${r.wins} thắng · ${r.losses} thua · ${r.draws} hòa</div></div>
                 <div style="text-align:right"><div class="realm" style="--hue:45">${fmt(r.rating)}</div><div class="end">${esc(rankTitle(r.rating))}</div></div></div>`,
             )
             .join("")}</div>`
@@ -1173,7 +1179,8 @@ async function renderRank(by = "realm") {
     ${rows.length
       ? `<div class="list">${rows
           .map(
-            (r, i) => `<div class="item ${r.userId === app.me.id ? "me" : ""}"><div class="no ${i < 3 ? "top" : ""}">${i + 1}</div>
+            (r, i) => `<div class="item has-av ${r.userId === app.me.id ? "me" : ""}"><div class="no ${i < 3 ? "top" : ""}">${i + 1}</div>
+              ${rowAvatar(r.best_realm, r.gender, r.name, r.seed)}
               <div class="main"><div class="title">${esc(r.name)}${me(r)}</div>
                 <div class="sub">${fmt(r.age)} tuổi · ${esc(byId(c.worlds, r.world)?.name ?? "")}${r.sect_id ? ` · ${r.sect_rank === "outcast" ? "phản đồ " : ""}${esc(byId(c.sects, r.sect_id)?.name ?? "")}` : " · tán tu"}</div></div>
               <div style="text-align:right"><div class="realm" style="--hue:${HUES[r.best_realm]}">${esc(c.realms[r.best_realm].name)}</div><div class="end">${esc(r.ending_reason)}</div></div></div>`,
@@ -2433,7 +2440,8 @@ async function renderSect(id) {
     ${s.ranking.length
       ? `<div class="list">${s.ranking
           .map(
-            (r, i) => `<div class="item"><div class="no ${i < 3 ? "top" : ""}">${i + 1}</div>
+            (r, i) => `<div class="item has-av"><div class="no ${i < 3 ? "top" : ""}">${i + 1}</div>
+              <span class="row-av">${avatarSvg(r.realm, r.gender, { seed: nameSeed(r.name), size: 40, animate: false })}</span>
               <div class="main"><div class="title">${esc(r.name)}${s.chief?.run === r.run ? ' <span class="crown">chưởng môn</span>' : r.elder ? ' <span class="muted small">trưởng lão</span>' : ""}</div>
                 <div class="sub">${esc(r.account)} · ${esc(realmOf(r.realm))} · ${fmt(r.age)} tuổi · ${r.wins} thắng${r.draws ? ` · ${r.draws} hòa` : ""}</div></div>
               <div class="sect-power"><b>${fmt(r.points)}</b><small>điểm</small></div></div>`,

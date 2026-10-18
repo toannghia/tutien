@@ -778,3 +778,6 @@ button, a, .option { touch-action: manipulation; -webkit-tap-highlight-color: tr
   .sheet .who > .who-av { grid-area: av; margin: 0; font-size: inherit; }
   .sheet .who > .who-av .avatar-svg { width: 54px; height: 54px; }
 }
+.item.has-av { grid-template-columns: 44px 40px 1fr auto; }
+.row-av .avatar-svg { width: 40px; height: 40px; filter: none; }
+@media (max-width: 900px) { .item.has-av { grid-template-columns: 26px 36px 1fr auto; gap: 8px; } .row-av .avatar-svg { width: 36px; height: 36px; } }

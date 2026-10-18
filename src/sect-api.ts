@@ -17,6 +17,10 @@ const nameFrom = (profile_json: string) => {
   try { return (JSON.parse(profile_json).name as string) || "Vô danh"; } catch { return "Vô danh"; }
 };
 
+const genderFrom = (profile_json: string) => {
+  try { return JSON.parse(profile_json).gender === "female" ? "female" : "male"; } catch { return "male"; }
+};
+
 // Lời hiệu triệu: ngắn, không link, lọc vài từ thô tục; admin có thể gỡ.
 const BAD = ["địt", "đụ", "lồn", "cặc", "buồi", "đéo", "vãi l", "đm ", "dm ", "clm", "vcl", "fuck", "shit"];
 export function cleanMotto(raw: unknown): string | { error: string } {
@@ -90,7 +94,7 @@ sects.get("/:id", async (c) => {
     disciples: (disciples.results as any[])[0]?.n ?? 0,
     chief: state.leader_run ? { run: state.leader_run, name: state.leader_name, realm: state.leader_realm, since: state.leader_since, isMe: !!user && state.leader_user === user.id } : null,
     ranking: (ranking.results as any[]).map((r) => ({
-      run: r.run_id, name: nameFrom(r.profile_json), account: r.isAnonymous ? GUEST_NAME : r.account, points: r.points, wins: r.wins, draws: r.draws, realm: r.realm, age: r.age, elder: r.sect_rank === "elder",
+      run: r.run_id, name: nameFrom(r.profile_json), gender: genderFrom(r.profile_json), account: r.isAnonymous ? GUEST_NAME : r.account, points: r.points, wins: r.wins, draws: r.draws, realm: r.realm, age: r.age, elder: r.sect_rank === "elder",
     })),
     candidates: (cands.results as any[]).map((x) => ({ run: x.run_id, name: x.name, points: x.points, realm: x.realm, alive: !!x.alive, votes: voteMap[x.run_id] ?? 0 })),
     history: history.results,
