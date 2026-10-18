@@ -269,3 +269,26 @@ describe("độ khó theo cảnh giới", () => {
     expect(hi.storm).toBeGreaterThan(1.3);
   });
 });
+
+describe("cân bằng rủi ro (bản 2)", () => {
+  it("kiếp mới có bv=2; dám liều được 'Tâm cảnh lịch luyện', né mãi bị 'Đạo tâm thiếu tôi luyện'", () => {
+    const factorsOf = (pickFirst: boolean) => {
+      const labels = new Set<string>();
+      for (let seed = 1; seed <= 40; seed++) {
+        const p = createProfile(seed, 0);
+        expect(p.bv).toBe(2);
+        const ch: ChoiceInput[] = [];
+        let s = replay(seed, p, ch);
+        while (s.pending) {
+          if (s.pending.kind === "breakthrough") s.pending.factors?.forEach((f) => labels.add(f.label));
+          const o = s.pending.kind === "event" ? (pickFirst ? s.pending.options[0] : s.pending.options[s.pending.options.length - 1]) : s.pending.options[0];
+          ch.push({ eventId: s.pending.eventId, choiceId: o.id });
+          s = replay(seed, p, ch);
+        }
+      }
+      return labels;
+    };
+    expect(factorsOf(true).has("Tâm cảnh lịch luyện")).toBe(true);
+    expect(factorsOf(false).has("Đạo tâm thiếu tôi luyện")).toBe(true);
+  });
+});

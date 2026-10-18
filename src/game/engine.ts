@@ -7,6 +7,7 @@ import { EVENTS } from "./events";
 import type { Choice, Condition, Effects, GameEvent, Outcome, PartnerStatus, SectStatus, Trial } from "./types";
 
 const PITY_LIMIT = 5;
+export const BALANCE_VERSION = 2;
 const MAX_TICKS = 20000;
 const REALM_COST = 300; // tổng điểm tu vi của một đại cảnh giới
 const BREAKTHROUGH_ID = "__breakthrough";
@@ -70,6 +71,7 @@ export type Profile = {
   qv?: number; // phiên bản ngân hàng câu hỏi lúc tạo kiếp (không có = ngân hàng trong code)
   review?: string[]; // id câu đến hạn ôn tập lúc tạo kiếp (ôn ngắt quãng), quá hạn lâu nhất trước
   sv?: number; // phiên bản danh sách môn phái lúc tạo kiếp (không có = 24 phái gốc)
+  bv?: number; // phiên bản cân bằng rủi ro (2: liều có thưởng, né mãi có giá, khí vận bớt áp đảo)
   karma?: Karma; // nhân quả thừa hưởng từ các kiếp trước (máy chủ tính lúc tạo kiếp); không có = kiếp cũ, tắt hệ nhân quả
 };
 
@@ -126,6 +128,7 @@ export function createProfile(seed: number, pityCount: number, cfg?: GameConfig,
     baseLifespan,
     isGood: root.score >= 48 || aptitude >= 80 || physique.id === "dao",
     sv: SECT_VERSION,
+    bv: BALANCE_VERSION,
     ...(cfg ? { cfg } : {}),
   };
 }
@@ -282,7 +285,10 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     heartAskedAt: -1, // cảnh giới đã vấn tâm (mỗi bình cảnh hỏi một lần)
     virtue: 0,
     sin: 0,
+    brave: 0, // số lần dám chọn phương án có rủi ro
+    timid: 0, // số lần chọn đường an toàn
   };
+  const bv2 = (profile.bv ?? 0) >= 2;
   // Nhân quả tiền kiếp: phúc báo nâng khí vận, nghiệp chướng hạ khí vận; túc tuệ nâng ngộ tính, thức tỉnh sớm hơn
   const K = profile.karma;
   const { blessing, burden } = karmaBalance(K);
@@ -577,17 +583,25 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
       runTrial(choice.trial, ev.text, choice.text);
       return;
     }
-    // Khí vận nghiêng cán cân về kết quả tốt, độ nguy hiểm của giới đẩy về kết quả xấu
+    const bad = (o: Outcome) => !!o.effects.death || (o.effects.health ?? 0) < 0;
+    const risky = choice.outcomes.some(bad);
+    // Khí vận nghiêng cán cân về kết quả tốt, độ nguy hiểm của giới đẩy về kết quả xấu.
+    // Bản cân bằng 2: khí vận bớt áp đảo (0,85–1,17 thay vì 0,6–1,24), kết cục tử vong hiếm hơn.
+    const luckMul = bv2 ? 1.25 - s.luck / 250 : 1.4 - s.luck / 125;
     const outcome = rng.pick(
       choice.outcomes.map((o) => ({
         ...o,
-        weight: o.weight * (o.effects.death || (o.effects.health ?? 0) < 0 ? world.danger * (1.4 - s.luck / 125) * (s.path === "dich" ? 0.9 : 1) : 1),
+        weight: o.weight * (bad(o) ? world.danger * luckMul * (s.path === "dich" ? (bv2 ? 0.85 : 0.9) : 1) * (bv2 && o.effects.death ? 0.55 : 1) : 1),
       })),
     );
     const at = s.facts.length;
     log(ev.title, outcome.text, outcome.effects.death ? "ending" : "choice", { choice: choice.text });
     if (outcome.effects.death) s.flags.add("died_risky");
-    s.facts[at].delta = apply(outcome.effects, outcome.reason);
+    if (bv2 && risky) s.brave++;
+    else if (bv2) s.timid++;
+    // Dám liều mà còn sống: lịch luyện cộng thêm tu vi
+    const extra: Effects = bv2 && risky && !outcome.effects.death ? { cultivation: (outcome.effects.cultivation ?? 0) + 8 + s.realm } : {};
+    s.facts[at].delta = apply({ ...outcome.effects, ...extra }, outcome.reason);
   }
 
   function breakthrough(): string {
@@ -860,6 +874,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     const tips: string[] = [];
     if (s.health < 80) tips.push("Chọn \"tích lũy thêm\" để thể trạng hồi phục trước khi thử lại.");
     if (!aided) tips.push(canAid ? "Dùng linh tài hộ pháp để có thêm 10% cơ hội." : "Tích lũy linh tài để có thể hộ pháp (+10%).");
+    if (bv2 && s.timid >= 4 && s.timid > s.brave * 2) tips.push("Đạo tâm cần tôi luyện: dám đối mặt hiểm nguy (rồi sống sót) sẽ được cộng tỉ lệ đột phá.");
     if (s.path && !insight) tips.push("Đáp đúng câu vấn tâm trước bình cảnh để có thêm 10%.");
     if (s.comprehension < 70) tips.push("Ngộ tính cao giúp đột phá dễ hơn — luận đạo và nghe giảng để tăng ngộ tính.");
     return tips.slice(0, 3);
@@ -872,7 +887,9 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
       [`Bình cảnh ${name}`, 0.72 - 0.045 * target - (cfg.realmCurve ? realmDifficulty(cfg.realmCurve, target).wall : 0)],
       ["Linh căn", s.rootScore / 700],
       ["Ngộ tính", s.comprehension / 600],
-      ["Khí vận", s.luck / 900],
+      ["Khí vận", s.luck / (bv2 ? 1200 : 900)],
+      ["Tâm cảnh lịch luyện", bv2 ? Math.min(5, s.brave) / 100 : 0],
+      ["Đạo tâm thiếu tôi luyện", bv2 && s.timid >= 4 && s.timid > s.brave * 2 ? -0.04 : 0],
       ["Thể chất", body.breakthrough],
       ["Thể trạng", -(100 - s.health) / 250],
       ["Linh tài hộ pháp", aid ? 0.1 : 0],

@@ -61,7 +61,7 @@ export const PATHS = [
   {
     id: "dich", name: "Dịch tu", glyph: "易",
     desc: "Quan sát biến hóa qua bát quái và sáu mươi tư quẻ. Khảo hạch về Kinh Dịch, tượng quẻ, phương vị.",
-    perk: "Ít gặp kết cục xấu hơn 10%. Mỗi câu trả lời đúng: +2 khí vận.",
+    perk: "Ít gặp kết cục xấu hơn 15%. Mỗi câu trả lời đúng: +2 khí vận.",
     reward: { luck: 2 },
   },
   {

@@ -45,6 +45,15 @@ Game mô phỏng một đời tu tiên. Chạy trên Cloudflare Workers + D1, d�
 
 Cấu hình `realmCurve` (admin › Cấu hình chỉ số, mặc định 0,7; 0 = như bản gốc) làm cảnh giới càng cao càng khó (`realmDifficulty` trong engine): tu luyện chậm dần (−5%×độ dốc mỗi cảnh giới từ Kim Đan), tỉ lệ đột phá trừ thêm 1,2%×độ dốc×(cảnh giới−3)^1,25, thiên kiếp hung hơn (+6%×độ dốc mỗi cảnh giới từ Hóa Thần). Giá trị được chụp vào từng kiếp nên kiếp cũ không đổi. Thử nghiệm: `CURVE=0.7 npx tsx scripts/balance.ts 2000`. Cẩm nang › Cảnh giới hiện tỉ lệ đột phá cơ bản, tốc độ tu luyện và độ hung thiên kiếp hiện hành.
 
+## Cân bằng rủi ro (bản 2)
+
+Kiếp tạo từ bản này có `profile.bv = 2` (kiếp cũ không đổi). Đo bằng `npx tsx scripts/path-balance.ts 600 "an toàn"|"liều"` cho thấy trước đây né mọi rủi ro áp đảo (chết sớm 12–19% so với 77–79% khi liều) và khí vận che chắn quá mạnh. Bản 2:
+- Khí vận bớt áp đảo: hệ số kết cục xấu 0,85–1,17 (trước 0,6–1,24); đột phá luck/1200 (trước luck/900). Kết cục tử vong do lựa chọn hiếm hơn (×0,55).
+- Dám chọn phương án có rủi ro mà sống sót: +tu vi lịch luyện, và đột phá +1% mỗi lần (tối đa +5%, "Tâm cảnh lịch luyện").
+- Né mãi (≥4 lần và gấp đôi số lần dám liều): đột phá −4% ("Đạo tâm thiếu tôi luyện").
+- Dịch tu: ít gặp kết cục xấu 15% (trước 10%) để bù khí vận bị giảm.
+Kết quả: an toàn → ổn định (cảnh giới TB ~5,8, hiếm khi lên đỉnh); liều → chết nhiều nhưng cơ hội lên Tiên Vương cao hơn ~5 lần.
+
 ## Nhân quả luân hồi
 
 Các kiếp nối với nhau bằng nhân quả (`src/karma.ts` tính lúc tạo kiếp rồi chụp vào `profile.karma`, nên phát lại vẫn tất định; kiếp tạo trước tính năng này không có `karma` và chạy y như cũ):
