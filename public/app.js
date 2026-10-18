@@ -1122,7 +1122,7 @@ async function renderRank(by = "realm") {
     rows.sort((a, b) => b[key] - a[key] || b.power - a.power || b.members - a.members);
     const unit = { power: "thế lực", points: "điểm tỷ võ", members: "đệ tử" }[key];
     page(
-      "Xếp hạng 24 môn phái của vạn giới. Thế lực = tổng (cảnh giới + 1)² kiếp tốt nhất mỗi đệ tử; điểm tỷ võ do đệ tử tại thế giành được trong luận đạo.",
+      `Xếp hạng ${c.sects.length} môn phái của vạn giới. Thế lực = tổng (cảnh giới + 1)² kiếp tốt nhất mỗi đệ tử; điểm tỷ võ do đệ tử tại thế giành được trong luận đạo.`,
       `<div class="range sect-metric">${[["power", "Thế lực"], ["points", "Điểm tỷ võ"], ["members", "Số đệ tử"]]
         .map(([k, l]) => `<button data-m="${k}" class="${k === key ? "on" : ""}">${l}</button>`)
         .join("")}</div>
@@ -1220,7 +1220,7 @@ async function renderCodex(tab = "realms") {
           ),
         )
         .join(""),
-    sects: () => c.worlds.map((w) => `<div class="card"><h3>${esc(w.name)}</h3>${c.sects.filter((x) => x.world === w.id).map((x) => `<div class="kv"><span class="k">${esc(x.glyph)} ${esc(x.name)}</span></div><div class="muted small" style="margin-bottom:6px">${esc(x.desc)}</div>`).join("")}</div>`).join(""),
+    sects: () => c.worlds.map((w) => `<div class="card"><h3>${esc(w.name)}</h3>${c.sects.filter((x) => x.world === w.id).map((x) => `<div class="kv"><span class="k">${esc(x.glyph)} ${esc(x.name)}</span></div><div class="muted small" style="margin-bottom:6px">${esc(x.desc)}${x.perk ? `<br><span class="sect-perk">✦ ${esc(x.perk)}</span>` : ""}</div>`).join("")}</div>`).join(""),
     paths: () => c.paths.map((p) => card(`${p.glyph} ${p.name}`, `${esc(p.desc)}<br/><b>${esc(p.perk)}</b><br/>Ngân hàng: ${p.questions} câu hỏi · khảo hạch khi nhập môn, ở giảng đường tông môn, trước mỗi bình cảnh (vấn tâm) và khi gặp kỳ nhân.`)).join(""),
     roots: () => c.roots.map((r) => card(r.name, `${esc(r.desc)}<br/>Điểm linh căn: ${r.score}`)).join(""),
     physiques: () => c.physiques.map((p) => card(p.name, esc(p.desc))).join(""),
@@ -2433,7 +2433,8 @@ async function renderSect(id) {
   $view.innerHTML = `<div class="page sect-page">
     <p><a href="#/sects" class="muted small">‹ Môn phái</a></p>
     <div class="wd-head"><span class="wglyph big">${esc(d?.glyph ?? "")}</span><div><h1>${esc(d?.name ?? id)}</h1>
-      <div class="muted small">${esc(byId(c.worlds, d?.world)?.name ?? "")} · ${esc(d?.desc ?? "")} · ${fmt(s.disciples)} đệ tử tại thế</div></div></div>
+      <div class="muted small">${esc(byId(c.worlds, d?.world)?.name ?? "")} · ${esc(d?.desc ?? "")} · ${fmt(s.disciples)} đệ tử tại thế</div>
+      ${d?.perk ? `<div class="sect-perk">✦ ${esc(d.perk)}</div>` : ""}</div></div>
     ${myStatus}
     ${stage}
     <h3>Bảng tỷ võ</h3>

@@ -282,15 +282,19 @@ export function createWorldMap(host, { data, codex, esc, fmt, realmName, onSelec
   const worldName = (id) => codex.worlds.find((w) => w.id === id)?.name ?? id;
   const stat = (id) => data.worlds.find((w) => w.id === id);
 
-  // Địa danh: 3 môn phái + 2 thành trấn mỗi vùng
+  // Địa danh: các môn phái + 2 thành trấn mỗi vùng
   const places = [];
   for (const id of Object.keys(regions)) {
     const g = regions[id];
     const sects = codex.sects.filter((s) => s.world === id);
-    const spots = g.island ? [...g.isles.slice(0, 4).map((isle) => centroid(isle)), ...geo.sample(id, 6, 40, 8)] : geo.sample(id, 5, 120, 46);
+    const need = sects.length + 2;
+    let spots = g.island ? [...g.isles.slice(0, 4).map((isle) => centroid(isle)), ...geo.sample(id, 6, 40, 8)] : geo.sample(id, need, 120, 46);
+    // Vùng hẹp không đủ chỗ: nới khoảng cách tối thiểu để môn phái nào cũng có vị trí
+    if (!g.island && spots.length < need) spots = geo.sample(id, need, 80, 30);
+    if (!g.island && spots.length < need) spots = geo.sample(id, need, 50, 20);
     sects.forEach((s, i) => spots[i] && places.push({ kind: "sect", id: s.id, region: id, name: s.name, glyph: s.glyph, x: spots[i][0], y: spots[i][1], island: g.island }));
     (TOWNS[id] ?? []).forEach((name, k) => {
-      const p = spots[3 + k];
+      const p = spots[sects.length + k];
       if (p) places.push({ kind: "town", region: id, name, x: p[0], y: p[1], island: g.island });
     });
   }

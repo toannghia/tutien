@@ -1,7 +1,7 @@
 // Engine mô phỏng tất định: cùng seed + profile + danh sách lựa chọn → luôn ra cùng một kiếp.
 // Máy chủ không tin client: nó chỉ nhận lựa chọn rồi tự dựng lại trạng thái bằng replay().
 
-import { ACHIEVEMENTS, GIVEN_NAMES, ORIGINS, PATHS, PHYSIQUES, REALMS, ROOTS, SECTS, SURNAMES, WORLDS } from "./data";
+import { ACHIEVEMENTS, GIVEN_NAMES, ORIGINS, PATHS, PHYSIQUES, REALMS, ROOTS, SECT_VERSION, SECTS, SURNAMES, WORLDS } from "./data";
 import { BANKS, type Question } from "./quiz";
 import { EVENTS } from "./events";
 import type { Choice, Condition, Effects, GameEvent, Outcome, PartnerStatus, SectStatus, Trial } from "./types";
@@ -61,6 +61,7 @@ export type Profile = {
   cfg?: GameConfig;
   qv?: number; // phiên bản ngân hàng câu hỏi lúc tạo kiếp (không có = ngân hàng trong code)
   review?: string[]; // id câu đến hạn ôn tập lúc tạo kiếp (ôn ngắt quãng), quá hạn lâu nhất trước
+  sv?: number; // phiên bản danh sách môn phái lúc tạo kiếp (không có = 24 phái gốc)
 };
 
 export function createProfile(seed: number, pityCount: number, cfg?: GameConfig, pityLimit = PITY_LIMIT): Profile {
@@ -93,6 +94,7 @@ export function createProfile(seed: number, pityCount: number, cfg?: GameConfig,
     awakeningAge,
     baseLifespan,
     isGood: root.score >= 48 || aptitude >= 80 || physique.id === "dao",
+    sv: SECT_VERSION,
     ...(cfg ? { cfg } : {}),
   };
 }
@@ -638,9 +640,13 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
 
   // Chọn phái trong giới diện theo seed + thời điểm, không dùng rng (để không làm lệch các kiếp đang dở)
   function pickSect() {
-    const list = SECTS.filter((x) => x.world === world.id);
+    const list = SECTS.filter((x) => x.world === world.id && x.since <= (profile.sv ?? 0));
     const h = Math.imul((seed ^ (s.tick + 1) * 0x9e3779b1) >>> 0, 0x85ebca6b) >>> 0;
     return list[h % list.length].id;
+  }
+
+  function inMystic() {
+    return s.sectId === "quychan" && (s.sect === "member" || s.sect === "elder");
   }
 
   function sectName(id: string | null) {
@@ -677,6 +683,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
       ["Linh tài hộ pháp", aid ? 0.1 : 0],
       ["Vấn tâm", s.insight ? 0.1 : 0],
       ["Đạo Luận tu", s.path === "daoluan" ? 0.03 : 0],
+      ["Huyền học Quy Chân", inMystic() ? 0.04 : 0],
       ["Trúc Cơ Đan", target === 2 && s.flags.has("pill") ? 0.2 : 0],
       ["Thiên ý", cfg.breakthroughBonus / 100],
     ];
@@ -772,7 +779,10 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
       { quiz: { qid: q.id, question: q.prompt, picked, answer, ok, explain: q.explain, review: reviewQ ? true : undefined } },
     );
     if (ok && cfg.quizReward > 0) {
-      const reward = Object.fromEntries(Object.entries(pathDef()!.reward).map(([k, v]) => [k, Math.round(Number(v) * cfg.quizReward)])) as Effects;
+      // Quy Chân Các: thế mạnh huyền học — thưởng khảo hạch ×1,5 và +1 ngộ tính
+      const mystic = inMystic() ? 1.5 : 1;
+      const reward = Object.fromEntries(Object.entries(pathDef()!.reward).map(([k, v]) => [k, Math.round(Number(v) * cfg.quizReward * mystic)])) as Effects;
+      if (mystic > 1) reward.comprehension = (reward.comprehension ?? 0) + 1;
       s.facts[at].delta = apply(reward);
     }
     return ok;

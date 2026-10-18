@@ -47,7 +47,7 @@ Game mô phỏng một đời tu tiên. Chạy trên Cloudflare Workers + D1, d�
 
 ## Bảng xếp hạng
 
-Năm tab: **Cảnh giới**, **Sống lâu** (mỗi tu sĩ tính kiếp tốt nhất, lọc được theo giới diện và môn phái qua `/api/leaderboard?by=&world=&sect=`), **Đạo vị** (luận đạo), **Môn phái** (24 phái xếp theo thế lực / điểm tỷ võ / số đệ tử) và **Giới diện** (8 giới xếp theo số tu sĩ). Nút "Cao thủ ›" ở bảng phái/giới mở bảng cao thủ đã lọc sẵn.
+Năm tab: **Cảnh giới**, **Sống lâu** (mỗi tu sĩ tính kiếp tốt nhất, lọc được theo giới diện và môn phái qua `/api/leaderboard?by=&world=&sect=`), **Đạo vị** (luận đạo), **Môn phái** (25 phái xếp theo thế lực / điểm tỷ võ / số đệ tử) và **Giới diện** (8 giới xếp theo số tu sĩ). Nút "Cao thủ ›" ở bảng phái/giới mở bảng cao thủ đã lọc sẵn.
 
 ## Bản đồ vạn giới
 

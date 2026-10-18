@@ -102,8 +102,10 @@ export const WORLDS = [
   { id: "shattered", name: "Tàn Thiên Giới", danger: 1.4, fortune: 0.9, desc: "Thiên địa rạn vỡ, không gian bất ổn, mất mạng chỉ trong chớp mắt." },
 ];
 
+export type Sect = { id: string; world: string; name: string; glyph: string; desc: string; since: number; perk: string };
+
 // Môn phái: mỗi giới diện 3 phái. Được tông môn nhận thì vào một phái của giới mình.
-export const SECTS = (
+export const SECTS: Sect[] = (
   [
     ["thanhvan", "peaceful", "Thanh Vân Tông", "劍", "Kiếm tu chính đạo, môn quy nghiêm minh."],
     ["bachthao", "peaceful", "Bách Thảo Cốc", "藥", "Thung lũng trăm loài linh thảo, giỏi luyện đan."],
@@ -130,7 +132,16 @@ export const SECTS = (
     ["hukhong", "shattered", "Hư Không Tự", "空", "Ngôi chùa trôi giữa các mảnh không gian."],
     ["tinhha", "shattered", "Tinh Hà Kiếm Phái", "星", "Kiếm khí như dải ngân hà, chém nát hư không."],
   ] as const
-).map(([id, world, name, glyph, desc]) => ({ id, world, name, glyph, desc }));
+).map(([id, world, name, glyph, desc]): Sect => ({ id, world, name, glyph, desc, since: 0, perk: "" }));
+
+// Phái thêm sau: chỉ kiếp tạo từ phiên bản môn phái `since` trở đi mới được nhận vào (kiếp cũ giữ nguyên phái khi phát lại)
+SECTS.push({
+  id: "quychan", world: "hidden", name: "Quy Chân Các", glyph: "玄",
+  desc: "Các lâu ẩn giữa mây mù, chuyên tinh huyền học: dịch lý, ngũ hành, phong thủy, mệnh lý — lấy hiểu đạo làm gốc tu hành.",
+  since: 2,
+  perk: "Thế mạnh huyền học: mỗi câu khảo hạch đúng nhận thưởng ×1,5 và +1 ngộ tính; đột phá +4%.",
+});
+export const SECT_VERSION = 2;
 
 export type AchievementCtx = { realm: number; age: number; flags: string[]; endingReason: string; ascended: boolean; died: boolean; rootless: boolean };
 
