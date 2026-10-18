@@ -9,7 +9,7 @@ import { banksFor, currentBanks, familyOf, idsForFamilies } from "./quiz-store";
 import { dueFamilies, recordAnswers } from "./srs";
 import { leaderTitle, onRunEnded, tickAll } from "./sect";
 import { inheritKarma, karmaStatements } from "./karma";
-import { karmaBalance } from "./game/engine";
+import { karmaBalance, realmDifficulty } from "./game/engine";
 import { sects } from "./sect-api";
 
 export { Matchmaker } from "./duel/matchmaker";
@@ -27,9 +27,14 @@ app.on(["GET", "POST"], "/api/auth/*", (c) => createAuth(c.env).handler(c.req.ra
 
 // Cẩm nang + cấu hình: công khai, client tải một lần lúc mở game
 app.get("/api/codex", async (c) => {
-  const { banks } = await currentBanks(c.env.DB);
+  const [{ banks }, settings] = await Promise.all([currentBanks(c.env.DB), getSettings(c.env.DB)]);
+  const curve = Number(settings.realmCurve);
   return c.json({
-    realms: REALMS,
+    // Kèm độ khó hiện hành (cho kiếp mới): tỉ lệ bình cảnh cơ bản, tốc độ tu luyện, độ hung của thiên kiếp
+    realms: REALMS.map((r, i) => {
+      const d = realmDifficulty(curve, i);
+      return { ...r, wallBase: i === 0 ? null : Math.round(Math.max(0.05, 0.72 - 0.045 * i - d.wall) * 100), speed: Math.round(Math.pow(0.86, Math.max(0, i - 1)) * d.speed * 100), storm: r.tribulation ? Math.round(d.storm * 100) : null };
+    }),
     roots: ROOTS,
     physiques: PHYSIQUES,
     // Chỉ gửi thông tin đạo đồ và số câu — tuyệt đối không gửi ngân hàng câu hỏi

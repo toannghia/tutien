@@ -41,8 +41,16 @@ export function createRng(seed: number): Rng {
 // ---------------------------------------------------------------- Profile
 
 // Chỉ số cân bằng chụp vào mỗi kiếp lúc tạo (admin chỉnh được). Thiếu thì dùng mặc định = hành vi gốc.
-export type GameConfig = { growth: number; eventRate: number; breakthroughBonus: number; tribulationDeath: number; quizReward: number };
-export const GAME_DEFAULTS: GameConfig = { growth: 1, eventRate: 0.4, breakthroughBonus: 0, tribulationDeath: 0.4, quizReward: 1 };
+// realmCurve: độ dốc độ khó theo cảnh giới (0 = như bản gốc). Càng lên cao: tu luyện chậm hơn, bình cảnh dày hơn, thiên kiếp hung hơn.
+export type GameConfig = { growth: number; eventRate: number; breakthroughBonus: number; tribulationDeath: number; quizReward: number; realmCurve?: number };
+export const GAME_DEFAULTS: GameConfig = { growth: 1, eventRate: 0.4, breakthroughBonus: 0, tribulationDeath: 0.4, quizReward: 1, realmCurve: 0 };
+
+/** Ba thành phần của đường cong độ khó (curve = cfg.realmCurve). */
+export const realmDifficulty = (curve: number, realm: number) => ({
+  speed: Math.pow(1 - 0.05 * curve, Math.max(0, realm - 2)), // hệ số tốc độ tu luyện ở cảnh giới hiện tại
+  wall: curve * 0.012 * Math.pow(Math.max(0, realm - 3), 1.25), // trừ vào tỉ lệ đột phá lên cảnh giới `realm`
+  storm: 1 + curve * 0.06 * Math.max(0, realm - 4), // nhân tỉ lệ vong mạng khi độ kiếp lên cảnh giới `realm`
+});
 
 export type Profile = {
   name: string;
@@ -496,7 +504,8 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
       const sectBonus = s.sect === "elder" ? 1.15 : s.sect === "member" ? 1.05 : 1;
       // Cảnh giới càng cao, tu luyện càng chậm
       const pathBonus = s.path === "nguhanh" ? 1.06 : 1;
-      s.progress += rng.int(6, 12) * talent * world.fortune * body.speed * sectBonus * pathBonus * cfg.growth * Math.pow(0.86, s.realm - 1);
+      const curveSpeed = cfg.realmCurve ? realmDifficulty(cfg.realmCurve, s.realm).speed : 1;
+      s.progress += rng.int(6, 12) * talent * world.fortune * body.speed * sectBonus * pathBonus * cfg.growth * Math.pow(0.86, s.realm - 1) * curveSpeed;
       const stages = REALMS[s.realm].stages.length;
       while (s.stage < stages - 1 && s.progress >= (s.stage + 1) * stageCost()) {
         s.stage++;
@@ -670,7 +679,8 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     if (tribulation) {
       // Công đức hộ thể giảm sát thương thiên lôi; ác nghiệp nặng thì thiên lôi càng hung
       const karmaMul = K ? (s.virtue >= 20 ? 0.75 : 1) * (s.sin >= 20 ? 1.3 : 1) : 1;
-      const deathChance = cfg.tribulationDeath * (s.health < 60 ? 1.5 : 1) * (body.id === "thunder" ? 0.6 : 1) * karmaMul;
+      const storm = cfg.realmCurve ? realmDifficulty(cfg.realmCurve, targetNo).storm : 1;
+      const deathChance = Math.min(0.95, cfg.tribulationDeath * (s.health < 60 ? 1.5 : 1) * (body.id === "thunder" ? 0.6 : 1) * karmaMul * storm);
       if (rng.next() < deathChance) {
         log("Thiên kiếp", `Đạo thiên lôi thứ ${strikesHeld + 1} giáng xuống. Ngươi không đỡ nổi.`, "ending", {
           choice,
@@ -859,7 +869,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     const pt = (x: number) => Math.round(x * 100);
     const name = target >= REALMS.length ? "Chứng đạo" : REALMS[target].name;
     const parts: [string, number][] = [
-      [`Bình cảnh ${name}`, 0.72 - 0.045 * target],
+      [`Bình cảnh ${name}`, 0.72 - 0.045 * target - (cfg.realmCurve ? realmDifficulty(cfg.realmCurve, target).wall : 0)],
       ["Linh căn", s.rootScore / 700],
       ["Ngộ tính", s.comprehension / 600],
       ["Khí vận", s.luck / 900],

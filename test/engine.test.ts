@@ -257,3 +257,15 @@ describe("ôn tập trong kiếp", () => {
     throw new Error("không tìm được seed phù hợp");
   });
 });
+
+describe("độ khó theo cảnh giới", () => {
+  it("độ dốc 0 không đổi gì; độ dốc càng cao, cảnh giới càng cao càng khó", async () => {
+    const { realmDifficulty } = await import("../src/game/engine");
+    expect(realmDifficulty(0, 13)).toEqual({ speed: 1, wall: 0, storm: 1 });
+    const lo = realmDifficulty(0.7, 3), hi = realmDifficulty(0.7, 12);
+    expect(lo.wall).toBe(0);
+    expect(hi.wall).toBeGreaterThan(0.1);
+    expect(hi.speed).toBeLessThan(lo.speed);
+    expect(hi.storm).toBeGreaterThan(1.3);
+  });
+});

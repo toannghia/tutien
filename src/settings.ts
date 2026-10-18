@@ -18,6 +18,7 @@ export const SETTINGS: SettingSpec[] = [
   { key: "growth", group: "game", label: "Tốc độ tu luyện", help: "Hệ số nhân tốc độ tăng tu vi mỗi lượt. 1 = mặc định.", type: "number", min: 0.5, max: 2, step: 0.05, default: 1 },
   { key: "eventRate", group: "game", label: "Tần suất sự kiện", help: "Xác suất xảy ra sự kiện mỗi lượt (người tu hành). Phàm nhân theo tỉ lệ tương ứng.", type: "number", min: 0.2, max: 0.7, step: 0.05, default: 0.4 },
   { key: "breakthroughBonus", group: "game", label: "Cộng tỉ lệ đột phá (%)", help: "Cộng/trừ thẳng vào tỉ lệ thành công khi đột phá. 0 = mặc định.", type: "number", min: -20, max: 20, step: 1, default: 0 },
+  { key: "realmCurve", group: "game", label: "Độ dốc độ khó theo cảnh giới", help: "Càng lên cao càng khó: tu luyện chậm dần, bình cảnh dày hơn, thiên kiếp hung hơn. 0 = như bản gốc. Chỉ áp cho kiếp tạo sau khi đổi.", type: "number", min: 0, max: 2, step: 0.1, default: 0.7 },
   { key: "tribulationDeath", group: "game", label: "Tỉ lệ vong mạng khi độ kiếp thất bại", help: "Xác suất chết khi thất bại ở thiên kiếp (trước khi tính thể trạng, thể chất).", type: "number", min: 0, max: 0.8, step: 0.05, default: 0.4 },
   { key: "quizReward", group: "game", label: "Hệ số thưởng câu đúng", help: "Nhân phần thưởng mỗi câu khảo hạch trả lời đúng. 0 = không thưởng.", type: "number", min: 0, max: 3, step: 0.25, default: 1 },
   { key: "pityLimit", group: "game", label: "Ngưỡng bảo hiểm số mệnh", help: "Số kiếp xấu liên tiếp trước khi chắc chắn được linh căn tốt.", type: "number", min: 3, max: 10, step: 1, default: 5 },
@@ -87,4 +88,5 @@ export const gameConfigOf = (s: Settings) => ({
   breakthroughBonus: Number(s.breakthroughBonus),
   tribulationDeath: Number(s.tribulationDeath),
   quizReward: Number(s.quizReward),
+  realmCurve: Number(s.realmCurve),
 });

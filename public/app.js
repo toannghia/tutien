@@ -1272,11 +1272,15 @@ async function renderCodex(tab = "realms") {
   const card = (title, body, locked = false) => `<div class="card ${locked ? "locked" : ""}"><h3>${esc(title)}</h3><div class="muted small">${body}</div></div>`;
   const content = {
     realms: () =>
+      `<p class="muted small">Càng lên cao càng khó: bình cảnh dày hơn, tu luyện chậm dần, thiên kiếp hung hơn. Đỉnh cao thường phải tu qua nhiều kiếp — túc tuệ, phúc báo và động phủ của kiếp trước sẽ giúp kiếp sau đi xa hơn.</p>` +
       c.realms
         .map((r, i) =>
           card(
             `${i}. ${r.name}`,
-            i === 0 ? "Thọ nguyên của người thường." : `Thọ nguyên ~${fmt(r.lifespan)} năm · ${r.stages.length} tiểu cảnh giới${r.tribulation ? " · <b>phải độ thiên kiếp</b>" : ""}${r.immortal ? " · tiên giới" : ""}`,
+            i === 0
+              ? "Thọ nguyên của người thường."
+              : `Thọ nguyên ~${fmt(r.lifespan)} năm · ${r.stages.length} tiểu cảnh giới${r.tribulation ? " · <b>phải độ thiên kiếp</b>" : ""}${r.immortal ? " · tiên giới" : ""}
+                ${r.wallBase != null ? `<div class="realm-diff"><span>Đột phá vào (cơ bản) <b>${r.wallBase}%</b></span><span>Tốc độ tu luyện <b>${r.speed}%</b></span>${r.storm ? `<span>Thiên kiếp hung <b>×${(r.storm / 100).toFixed(2)}</b></span>` : ""}</div>` : ""}`,
           ),
         )
         .join(""),

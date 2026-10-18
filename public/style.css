@@ -831,3 +831,4 @@ button, a, .option { touch-action: manipulation; -webkit-tap-highlight-color: tr
   .sect-row { grid-template-columns: 22px 34px 1fr; }
   .sflag.big .sect-flag { width: 56px; height: 88px; }
 }
+.realm-diff { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 12px; color: var(--muted); } .realm-diff b { color: var(--ink); font-weight: 600; }

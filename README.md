@@ -41,6 +41,10 @@ Game mô phỏng một đời tu tiên. Chạy trên Cloudflare Workers + D1, d�
 - **Đạo vị (Elo, K = 32)** chỉ áp dụng cho tài khoản đã đăng ký. Khách được đấu thử nhưng không được tính điểm. Bậc danh hiệu: Sơ học → Nhập thất → Chân truyền → Tông sư → Đạo tôn.
 - **Deploy:** Durable Objects được tạo tự động khi `wrangler deploy` (migration `v1` trong `wrangler.jsonc`). Chạy thêm `npm run db:migrate:remote` để tạo bảng `ratings`, `duels`.
 
+## Độ khó theo cảnh giới
+
+Cấu hình `realmCurve` (admin › Cấu hình chỉ số, mặc định 0,7; 0 = như bản gốc) làm cảnh giới càng cao càng khó (`realmDifficulty` trong engine): tu luyện chậm dần (−5%×độ dốc mỗi cảnh giới từ Kim Đan), tỉ lệ đột phá trừ thêm 1,2%×độ dốc×(cảnh giới−3)^1,25, thiên kiếp hung hơn (+6%×độ dốc mỗi cảnh giới từ Hóa Thần). Giá trị được chụp vào từng kiếp nên kiếp cũ không đổi. Thử nghiệm: `CURVE=0.7 npx tsx scripts/balance.ts 2000`. Cẩm nang › Cảnh giới hiện tỉ lệ đột phá cơ bản, tốc độ tu luyện và độ hung thiên kiếp hiện hành.
+
 ## Nhân quả luân hồi
 
 Các kiếp nối với nhau bằng nhân quả (`src/karma.ts` tính lúc tạo kiếp rồi chụp vào `profile.karma`, nên phát lại vẫn tất định; kiếp tạo trước tính năng này không có `karma` và chạy y như cũ):

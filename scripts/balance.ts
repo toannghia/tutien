@@ -1,6 +1,6 @@
 // Mô phỏng hàng loạt để cân bằng độ khó: npx tsx scripts/balance.ts [số kiếp]
 import { REALMS } from "../src/game/data";
-import { createProfile, replay, type ChoiceInput, type RunState } from "../src/game/engine";
+import { createProfile, GAME_DEFAULTS, replay, type ChoiceInput, type RunState } from "../src/game/engine";
 import { BANKS } from "../src/game/quiz";
 
 const ALL = Object.values(BANKS).flat();
@@ -42,7 +42,9 @@ for (const [name, policy] of Object.entries(policies)) {
   let r = 1;
   const rnd = () => ((r = (r * 16807) % 2147483647) / 2147483647);
   for (let seed = 1; seed <= N; seed++) {
-    const profile = createProfile(seed * 7919, 0);
+    // CURVE=… để thử độ dốc độ khó theo cảnh giới (mặc định 0 = bản gốc)
+    const profile = createProfile(seed * 7919, 0, { ...GAME_DEFAULTS, realmCurve: Number(process.env.CURVE ?? 0) });
+    profile.karma = { v: 0, s: 0, insight: 0, pastBest: 0 };
     const choices: ChoiceInput[] = [];
     let s = replay(seed * 7919, profile, choices);
     while (s.pending) {
