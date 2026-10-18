@@ -39,7 +39,8 @@ app.get("/api/codex", async (c) => {
     physiques: PHYSIQUES,
     // Chỉ gửi thông tin đạo đồ và số câu — tuyệt đối không gửi ngân hàng câu hỏi
     paths: PATHS.map(({ id, name, glyph, desc, perk }) => ({ id, name, glyph, desc, perk, questions: banks[id]?.length ?? 0 })),
-    origins: ORIGINS.map(({ id, name, resources, sect }) => ({ id, name, resources, sect })),
+    origins: ORIGINS.map(({ id, name, resources, sect, text, desc, bonus, weight }) => ({ id, name, resources, sect, text, desc, bonus: bonus ?? null, chance: Math.round((weight / ORIGINS.reduce((t, o) => t + o.weight, 0)) * 1000) / 10 })),
+    rules: { pityLimit: Number(settings.pityLimit), realmCurve: curve },
     worlds: WORLDS,
     sects: SECTS,
     achievements: ACHIEVEMENTS.map(({ id, name, desc }) => ({ id, name, desc })),

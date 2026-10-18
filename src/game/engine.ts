@@ -289,6 +289,15 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     timid: 0, // số lần chọn đường an toàn
   };
   const bv2 = (profile.bv ?? 0) >= 2;
+  // Xuất thân bổ sung: chỉ số cộng lúc chào đời (6 xuất thân gốc không có bonus → kiếp cũ không đổi)
+  if (origin.bonus) {
+    const b = origin.bonus;
+    s.luck = Math.max(0, Math.min(100, s.luck + (b.luck ?? 0)));
+    s.comprehension = Math.max(0, Math.min(100, s.comprehension + (b.comprehension ?? 0)));
+    s.lifespan += b.lifespan ?? 0;
+    s.virtue += b.virtue ?? 0;
+    s.sin += b.sin ?? 0;
+  }
   // Nhân quả tiền kiếp: phúc báo nâng khí vận, nghiệp chướng hạ khí vận; túc tuệ nâng ngộ tính, thức tỉnh sớm hơn
   const K = profile.karma;
   const { blessing, burden } = karmaBalance(K);

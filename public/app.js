@@ -4,6 +4,7 @@
 import { createWorldMap } from "./worldmap.js";
 import { avatarSvg } from "./avatar.js";
 import { flagSvg } from "./banner.js";
+import { EMBLEM_GROUPS, emblemGroup, emblemSvg } from "./emblem.js";
 
 const $view = document.getElementById("view");
 const HUES = [30, 140, 155, 45, 210, 270, 230, 190, 0, 50, 40, 280, 300, 15];
@@ -252,7 +253,7 @@ async function reveal(run) {
     await sleep(380);
     el.classList.add("on");
   }
-  document.getElementById("rootDesc").textContent = root.desc;
+  document.getElementById("rootDesc").textContent = `${byId(c.origins, p.origin)?.desc ?? ""} ${root.desc}`.trim();
   const btn = document.getElementById("enter");
   btn.classList.remove("hidden");
   btn.onclick = () => {
@@ -842,7 +843,7 @@ async function showEnding() {
     <div class="muted small">KẾT CỤC KIẾP ${pad(run.number)}</div>
     <h2>${esc(run.endingReason)}</h2>
     <div class="muted">${esc(run.realmLabel)} · hưởng thọ ${fmt(run.age)} tuổi</div>
-    ${unlocked.length ? `<div class="muted small" style="margin-top:14px">Thành tựu mới</div><div class="ach-list">${achNames(unlocked).map((n) => `<span class="ach">✦ ${esc(n)}</span>`).join("")}</div>` : ""}
+    ${unlocked.length ? `<div class="muted small" style="margin-top:14px">Thành tựu mới</div><div class="ach-list emblems">${unlocked.map((id) => `<span class="ach-new">${emblemSvg(id, { size: 52, title: byId(app.codex.achievements, id)?.name })}<small>${esc(byId(app.codex.achievements, id)?.name ?? "")}</small></span>`).join("")}</div>` : ""}
     <div class="quote">“Một kiếp khép lại. Vạn kiếp vẫn còn phía trước.”</div>
     <div class="actions">
       <button class="btn" id="again">⟳ Luân hồi lần nữa</button>
@@ -968,12 +969,23 @@ async function buildFateCard(run) {
   const n = wrapText(g, run.endingReason ?? "Đang tu hành", 540, 1040, 860, 52, 2);
 
   // Thành tựu của kiếp này
-  const ach = (run.achievements ?? []).map((id) => byId(c.achievements, id)?.name).filter(Boolean);
-  if (ach.length) {
-    font(24, 400); g.fillStyle = PALETTE.green; g.textAlign = "center";
-    const chips = ach.slice(0, 5).map((a) => `✦ ${a}`);
-    if (ach.length > 5) chips.push(`+${ach.length - 5}`);
-    wrapText(g, chips, 540, 1040 + n * 52 + 30, 880, 34, 2);
+  // Thành tựu của kiếp này: hàng biểu trưng (tối đa 7)
+  const achIds = (run.achievements ?? []).filter((id) => byId(c.achievements, id));
+  if (achIds.length) {
+    const shown = achIds.slice(0, 7), sz = 74, gap = 14;
+    const x0 = 540 - (shown.length * sz + (shown.length - 1) * gap) / 2;
+    const y0 = 1040 + n * 52 + 4;
+    await Promise.all(
+      shown.map(async (id, i) => {
+        try {
+          const img = new Image();
+          img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(emblemSvg(id, { size: sz }));
+          await img.decode();
+          g.drawImage(img, x0 + i * (sz + gap), y0, sz, sz * 1.04);
+        } catch {}
+      }),
+    );
+    if (achIds.length > 7) center(`+${achIds.length - 7} thành tựu`, y0 + sz + 34, 20, PALETTE.green, 500, "Be Vietnam Pro");
   }
 
   center("“Một kiếp khép lại. Vạn kiếp vẫn còn phía trước.”", 1218, 26, PALETTE.muted, 400, "Noto Serif");
@@ -1266,11 +1278,52 @@ async function renderRank(by = "realm") {
 
 // ---------------------------------------------------------------- Cẩm nang
 
-async function renderCodex(tab = "realms") {
+// Hiệu ứng của một xuất thân: [chữ, lớp màu]
+function originEffects(o) {
+  const out = [[`Linh tài khởi đầu ${o.resources}`, ""]];
+  if (o.sect === "member") out.push(["Là đệ tử tông môn từ đầu", "good"]);
+  const b = o.bonus ?? {};
+  const add = (v, label, invert = false) => v && out.push([`${label} ${v > 0 ? "+" : "−"}${Math.abs(v)}`, (v > 0) !== invert ? "good" : "bad"]);
+  add(b.luck, "Khí vận");
+  add(b.comprehension, "Ngộ tính");
+  add(b.lifespan, "Thọ nguyên");
+  add(b.virtue, "Thiện nghiệp");
+  add(b.sin, "Ác nghiệp", true);
+  return out;
+}
+
+// Cẩm nang › Luân hồi: hướng dẫn vòng đời một kiếp và nhân quả giữa các kiếp
+function guideLuanHoi(c) {
+  const sec = (glyph, title, body) => `<section class="guide-sec"><span class="guide-glyph">${glyph}</span><div><h3>${title}</h3>${body}</div></section>`;
+  return `<div class="guide">
+    ${sec("輪", "Một kiếp diễn ra thế nào", `<ol>
+      <li><b>Đầu thai:</b> luân hồi bốc ngẫu nhiên giới diện, xuất thân, linh căn, thể chất, tư chất, ngộ tính, khí vận — cộng thêm nhân quả từ kiếp trước.</li>
+      <li><b>Thức tỉnh:</b> có linh căn thì khoảng 8–14 tuổi bước vào Luyện Khí và <b>chọn đạo đồ</b>. Phàm căn sống đời người thường, trừ khi gặp kỳ ngộ khai mở linh căn.</li>
+      <li><b>Tu hành:</b> năm tháng trôi, cơ duyên và kiếp nạn xen kẽ. Gặp ngã rẽ thì tự chọn; khảo hạch theo đạo đồ hiện ra khi nhập môn, nghe giảng, vấn tâm.</li>
+      <li><b>Bình cảnh:</b> tu vi viên mãn thì phải đột phá — thử ngay, dùng linh tài hộ pháp (+10%), hay tích lũy thêm cho thể trạng hồi phục. Hóa Thần, Chân Tiên, Tiên Đế phải <b>độ thiên kiếp</b>: thất bại có thể hồn phi phách tán.</li>
+      <li><b>Kết cục:</b> thọ nguyên cạn, tử nạn, hoặc <b>chứng đạo</b> ở đỉnh Tiên Đế. Bấm “Luân hồi” để bắt đầu kiếp mới; bỏ kiếp đang dở gọi là <i>luân hồi sớm</i>.</li></ol>`)}
+    ${sec("命", "Bảo hiểm số mệnh", `<p>Xui liên tiếp <b>${c.rules?.pityLimit ?? 5} kiếp</b> (linh căn kém, tư chất thấp) thì kiếp kế tiếp chắc chắn được linh căn tốt. Không ai bị số phận bỏ rơi mãi.</p>`)}
+    ${sec("業", "Nghiệp lực thiện / ác", `<p>Lựa chọn của ngươi để lại nghiệp: cứu người, trừ yêu, bố thí, tố giác phản đồ → <span class="good">thiện nghiệp</span>; đoạt bảo, luyện tà pháp, vu cáo đồng môn → <span class="bad">ác nghiệp</span> (thường kèm lợi lộc trước mắt).</p>
+      <ul><li><b>Trong kiếp:</b> thiện ≥ 22 có <i>công đức kim quang</i>; thiện ≥ 20 giảm 25% nguy cơ chết khi độ kiếp. Ác ≥ 18 sinh <i>tâm ma</i>; ác ≥ 20 thiên lôi hung hơn; ác ≥ 30 bình cảnh khó qua.</li>
+      <li><b>Sang kiếp sau:</b> nghiệp mỗi kiếp phai một nửa. Dư thiện thành <span class="good">phúc báo</span> (khí vận, đột phá); dư ác thành <span class="bad">nghiệp chướng</span>. Luân hồi sớm <b>không xóa</b> được ác nghiệp, và thiện nghiệp chỉ tính khi đi hết một đời.</li></ul>`)}
+    ${sec("慧", "Túc tuệ", `<p>Cảnh giới đã tu ở các kiếp gần để lại ký ức đạo pháp (tối đa 60): ngộ tính cao hơn, linh căn thức tỉnh sớm hơn, và <b>đường quen +5%</b> khi đột phá cảnh giới mình từng đạt.</p>`)}
+    ${sec("府", "Động phủ tiền kiếp", `<p>Kiếp đạt <b>Kim Đan</b> trở lên để lại một động phủ (một nửa linh tài lúc tọa hóa). Kiếp sau có thể lạc vào đó: <b>kế thừa</b> (linh tài, tu vi, pháp bảo +3% đột phá) hoặc <b>phong ấn lại</b> (thiện nghiệp, để dành cho kiếp sau nữa).</p>`)}
+    ${sec("執", "Chấp niệm · Tiền duyên · Oan gia", `<ul>
+      <li><b>Chấp niệm:</b> gục ngã ở cảnh giới nào (thiên kiếp, đột phá thất bại, hết thọ), kiếp sau mang chấp niệm: +5% khi thử lại; vượt qua thì chấp niệm tiêu tan — thưởng thọ nguyên, ngộ tính, khí vận.</li>
+      <li><b>Tiền duyên:</b> kiếp trước có đạo lữ thì kiếp sau sẽ gặp lại <i>cố nhân</i> — nối duyên hay để duyên trôi là tùy ngươi.</li>
+      <li><b>Oan gia:</b> gây ác nghiệp nặng (≥ 25) thì kiếp sau nạn nhân tìm đến đòi nợ: chuộc lỗi, nghênh chiến, hoặc (Phật tu) siêu độ.</li></ul>`)}
+    ${sec("心", "Đạo tâm & rủi ro", `<p>Dám chọn phương án có hiểm nguy mà sống sót thì được <b>lịch luyện</b>: thêm tu vi và +1% đột phá mỗi lần (tối đa +5%). Né tránh mãi thì <b>đạo tâm thiếu tôi luyện</b> (−4% đột phá). Khí vận giúp tránh họa và đột phá dễ hơn, nhưng không thay được bản lĩnh.</p>`)}
+    ${sec("峰", "Càng cao càng khó", `<p>Bình cảnh dày dần, tu luyện chậm dần, thiên kiếp hung dần theo cảnh giới (xem tab Cảnh giới). Đỉnh cao thường cần nhiều kiếp: hãy tích thiện, để lại động phủ, nuôi túc tuệ cho kiếp sau.</p>`)}
+    ${sec("冊", "Sổ Sinh Tử", `<p>Mọi kiếp được ghi lại cùng nghiệp lực, những gì nhận vào và để lại, và nhân quả đang chờ kiếp sau. <a href="#/history">Mở Sổ Sinh Tử ›</a></p>`)}
+  </div>`;
+}
+
+async function renderCodex(tab = "luanhoi") {
   const c = app.codex;
-  const tabs = { paths: "Đạo đồ", realms: "Cảnh giới", roots: "Linh căn", physiques: "Thể chất", origins: "Xuất thân", worlds: "Giới diện", sects: "Môn phái", achievements: "Thành tựu" };
+  const tabs = { luanhoi: "Luân hồi", paths: "Đạo đồ", realms: "Cảnh giới", roots: "Linh căn", physiques: "Thể chất", origins: "Xuất thân", worlds: "Giới diện", sects: "Môn phái", achievements: "Thành tựu" };
   const card = (title, body, locked = false) => `<div class="card ${locked ? "locked" : ""}"><h3>${esc(title)}</h3><div class="muted small">${body}</div></div>`;
   const content = {
+    luanhoi: () => guideLuanHoi(c),
     realms: () =>
       `<p class="muted small">Càng lên cao càng khó: bình cảnh dày hơn, tu luyện chậm dần, thiên kiếp hung hơn. Đỉnh cao thường phải tu qua nhiều kiếp — túc tuệ, phúc báo và động phủ của kiếp trước sẽ giúp kiếp sau đi xa hơn.</p>` +
       c.realms
@@ -1288,9 +1341,21 @@ async function renderCodex(tab = "realms") {
     paths: () => c.paths.map((p) => card(`${p.glyph} ${p.name}`, `${esc(p.desc)}<br/><b>${esc(p.perk)}</b><br/>Ngân hàng: ${p.questions} câu hỏi · khảo hạch khi nhập môn, ở giảng đường tông môn, trước mỗi bình cảnh (vấn tâm) và khi gặp kỳ nhân.`)).join(""),
     roots: () => c.roots.map((r) => card(r.name, `${esc(r.desc)}<br/>Điểm linh căn: ${r.score}`)).join(""),
     physiques: () => c.physiques.map((p) => card(p.name, esc(p.desc))).join(""),
-    origins: () => c.origins.map((o) => card(o.name, `Linh tài khởi đầu: ${o.resources}${o.sect === "member" ? " · lớn lên trong tông môn" : ""}`)).join(""),
+    origins: () =>
+      `<p class="muted small">Xuất thân được luân hồi bốc ngẫu nhiên lúc đầu thai, quyết định linh tài khởi đầu và một vài lợi thế (hoặc gánh nặng) riêng.</p>` +
+      c.origins.map((o) => card(o.name, `<i>${esc(o.text)}</i><br/>${esc(o.desc)}<div class="origin-fx">${originEffects(o).map((e) => `<span class="${e[1]}">${esc(e[0])}</span>`).join("")}<span class="muted">Tỉ lệ đầu thai ${o.chance}%</span></div>`)).join(""),
     worlds: () => c.worlds.map((w) => card(w.name, `${esc(w.desc)}<br/>Hiểm họa ×${w.danger} · Cơ duyên ×${w.fortune}`)).join(""),
-    achievements: () => c.achievements.map((a) => card((app.me.achievements.includes(a.id) ? "✦ " : "") + a.name, esc(a.desc), !app.me.achievements.includes(a.id))).join(""),
+    achievements: () =>
+      EMBLEM_GROUPS.map(([g, label]) => {
+        const list = c.achievements.filter((a) => emblemGroup(a.id) === g);
+        if (!list.length) return "";
+        return `<div class="ach-group"><h3>${label}</h3><div class="ach-grid">${list
+          .map((a) => {
+            const got = app.me.achievements.includes(a.id);
+            return `<div class="ach-card ${got ? "got" : "locked"}">${emblemSvg(a.id, { size: 64, locked: !got, title: a.name })}<div><b>${esc(a.name)}</b><div class="muted small">${esc(a.desc)}</div></div></div>`;
+          })
+          .join("")}</div></div>`;
+      }).join(""),
   };
   $view.innerHTML = `<div class="page"><h1>Cẩm nang tiên lộ</h1><p class="muted">Hiểu căn cốt, biết cảnh giới và giới diện trước khi bước vào luân hồi.</p>
     <div class="tabs">${Object.entries(tabs).map(([k, v]) => `<button data-t="${k}" class="${k === tab ? "on" : ""}">${v}${k === "achievements" ? ` (${app.me.achievements.length}/${c.achievements.length})` : ""}</button>`).join("")}</div>

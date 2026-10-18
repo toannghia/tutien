@@ -832,3 +832,29 @@ button, a, .option { touch-action: manipulation; -webkit-tap-highlight-color: tr
   .sflag.big .sect-flag { width: 56px; height: 88px; }
 }
 .realm-diff { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 6px; font-size: 12px; color: var(--muted); } .realm-diff b { color: var(--ink); font-weight: 600; }
+
+/* ---------- Cẩm nang: luân hồi, xuất thân, thành tựu */
+.guide { display: grid; gap: 12px; grid-column: 1 / -1; }
+.guide-sec { display: grid; grid-template-columns: 48px 1fr; gap: 14px; border: 1px solid var(--line); background: var(--panel); border-radius: 10px; padding: 16px 18px; }
+.guide-sec h3 { margin: 2px 0 6px; }
+.guide-sec p, .guide-sec li { color: var(--ink-2); line-height: 1.6; font-size: 14.5px; }
+.guide-sec ol, .guide-sec ul { margin: 6px 0 0; padding-left: 20px; }
+.guide-sec li { margin-bottom: 4px; }
+.guide-glyph { width: 46px; height: 46px; border-radius: 10px; display: grid; place-items: center; font-family: var(--serif); font-size: 24px; color: #fff; background: #9b2c2c; box-shadow: inset 0 0 0 3px rgb(255 255 255 / .2); }
+.origin-fx { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: 12.5px; }
+.ach-group { grid-column: 1 / -1; }
+.ach-group h3 { margin: 10px 0 8px; }
+.ach-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.ach-card { display: grid; grid-template-columns: 64px 1fr; gap: 12px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); }
+.ach-card.got { border-color: color-mix(in srgb, var(--gold) 55%, var(--line)); }
+.ach-card.locked b { color: var(--muted); }
+.emblem { display: block; filter: drop-shadow(0 2px 3px rgb(0 0 0 / .22)); }
+.ach-list.emblems { gap: 14px; }
+.ach-new { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 84px; animation: rise .6s ease both; }
+.ach-new small { font-size: 12px; color: var(--gold); text-align: center; line-height: 1.3; }
+@media (max-width: 900px) {
+  .guide-sec { grid-template-columns: 1fr; gap: 8px; padding: 14px; }
+  .guide-glyph { width: 38px; height: 38px; font-size: 20px; }
+  .ach-grid { grid-template-columns: 1fr; }
+}
+.cards > p { grid-column: 1 / -1; margin: 0; }

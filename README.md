@@ -63,6 +63,12 @@ Các kiếp nối với nhau bằng nhân quả (`src/karma.ts` tính lúc tạo
 - **Chấp niệm / tiền duyên / oan gia:** gục ngã ở cảnh giới nào thì kiếp sau mang chấp niệm (+5% khi thử lại, vượt qua thì thưởng thọ nguyên, ngộ tính, khí vận); có đạo lữ thì kiếp sau gặp lại *cố nhân*; ác nghiệp ≥25 thì *oan gia* tìm đến đòi nợ.
 - **Sổ Sinh Tử** (`/#/history`): chuỗi các kiếp với nghiệp lực, những gì mỗi kiếp nhận vào và để lại, cùng nhân quả đang chờ kiếp sau. Cân bằng: `npx tsx scripts/karma-balance.ts`.
 
+## Cẩm nang, xuất thân, biểu trưng thành tựu
+
+- **Cẩm nang › Luân hồi** (tab mặc định): vòng đời một kiếp, bảo hiểm số mệnh, nghiệp lực, túc tuệ, động phủ, chấp niệm/tiền duyên/oan gia, đạo tâm & rủi ro, độ khó theo cảnh giới, Sổ Sinh Tử.
+- **Xuất thân:** 13 loại (6 gốc + 7 mới: lang y, thư hương, tiểu đạo đồng, thợ săn, thế gia sa sút, con của ma tu, sinh ra có dị tượng), mỗi loại có mô tả rõ, linh tài khởi đầu và chỉ số cộng lúc chào đời (`bonus`: khí vận, ngộ tính, thọ nguyên, thiện/ác nghiệp). Xuất thân gốc không có bonus nên kiếp cũ phát lại y nguyên.
+- **Biểu trưng thành tựu:** `public/emblem.js` vẽ huy hiệu SVG cho 28 thành tựu, hình dáng theo nhóm (cảnh giới: huy chương; đời người: lục giác; nhân duyên: ấn vuông; đạo tâm: bát giác; nhân quả: hoa sen), chưa đạt thì xám có khóa. Hiện ở Cẩm nang › Thành tựu, màn kết cục và ảnh số mệnh.
+
 ## Chân dung theo cảnh giới
 
 `public/avatar.js` vẽ chân dung SVG bằng code (không dùng ảnh) cho 14 cảnh giới, nam/nữ khác kiểu tóc. Mỗi cảnh giới đổi phục sức, mũ/miện, ấn ký giữa trán (từ Hóa Thần), dị tượng phía sau (linh khí, kim đan, nguyên anh, thiên lôi, hư không, âm dương, kim liên, phù văn, đế miện…) và khung viền. Chân dung đổi ngay khi lên cảnh giới (có hiệu ứng lóe sáng), hiện ở bảng nhân vật, màn đột phá, kết cục, lịch sử, luận đạo và ảnh số mệnh.

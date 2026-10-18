@@ -41,14 +41,61 @@ export const PHYSIQUES = [
   { id: "dao", name: "Tiên Thiên Đạo Thể", weight: 1, speed: 1.4, guard: 0.7, regen: 1.4, breakthrough: 0.12, desc: "Đạo thể bẩm sinh, vạn năm hiếm thấy." },
 ];
 
-export const ORIGINS = [
-  { id: "village", name: "Con nhà nông nơi sơn thôn", weight: 34, resources: 5, sect: "none", text: "Ngươi sinh ra trong một mái nhà tranh dưới chân núi. Tiếng gà gáy và mùi lúa mới là những ký ức đầu tiên." },
-  { id: "merchant", name: "Con nhà thương hộ", weight: 20, resources: 30, sect: "none", text: "Ngươi sinh ra trong nhà buôn ở trấn lớn. Bạc tiền không thiếu, nhưng cha mẹ luôn mong ngươi được tiên nhân để mắt." },
-  { id: "orphan", name: "Cô nhi nơi phố chợ", weight: 12, resources: 0, sect: "none", text: "Ngươi không nhớ mặt cha mẹ. Phố chợ ồn ã là nơi ngươi lớn lên, học cách tự sống từ rất sớm." },
-  { id: "clan", name: "Tu tiên thế gia", weight: 14, resources: 45, sect: "none", text: "Ngươi chào đời trong một gia tộc tu tiên. Kỳ vọng đặt lên ngươi từ ngày đầu, dù linh căn còn chưa rõ." },
-  { id: "sect_servant", name: "Con nhà tạp dịch tông môn", weight: 12, resources: 10, sect: "member", text: "Cha mẹ ngươi làm tạp dịch trong một tông môn. Ngươi lớn lên giữa sơn môn, nhìn các đệ tử ngự kiếm qua đầu." },
-  { id: "noble", name: "Hậu duệ vương phủ", weight: 8, resources: 60, sect: "none", text: "Ngươi sinh ra trong vương phủ, gấm vóc từ nhỏ. Nhưng trong mắt tiên nhân, quyền thế phàm gian chẳng đáng là bao." },
+// Xuất thân: bốc lúc tạo kiếp. resources = linh tài khởi đầu, sect = lớn lên trong tông môn,
+// bonus = chỉ số cộng lúc chào đời (chỉ xuất thân mới có; 6 xuất thân gốc giữ nguyên để kiếp cũ phát lại đúng).
+export type OriginBonus = { luck?: number; comprehension?: number; lifespan?: number; virtue?: number; sin?: number };
+export type Origin = { id: string; name: string; weight: number; resources: number; sect: "none" | "member"; text: string; desc: string; bonus?: OriginBonus };
+
+export const ORIGINS: Origin[] = [
+  { id: "village", name: "Con nhà nông nơi sơn thôn", weight: 30, resources: 5, sect: "none",
+    text: "Ngươi sinh ra trong một mái nhà tranh dưới chân núi. Tiếng gà gáy và mùi lúa mới là những ký ức đầu tiên.",
+    desc: "Xuất thân phổ biến nhất. Tuổi thơ lam lũ, tay trắng bước vào đời — mọi thứ phải tự mình giành lấy." },
+  { id: "merchant", name: "Con nhà thương hộ", weight: 17, resources: 30, sect: "none",
+    text: "Ngươi sinh ra trong nhà buôn ở trấn lớn. Bạc tiền không thiếu, nhưng cha mẹ luôn mong ngươi được tiên nhân để mắt.",
+    desc: "Túi tiền rủng rỉnh: đủ linh tài để hộ pháp sớm khi đột phá, hoặc thuê người đi thay khi có lệnh trưng binh." },
+  { id: "orphan", name: "Cô nhi nơi phố chợ", weight: 10, resources: 0, sect: "none",
+    text: "Ngươi không nhớ mặt cha mẹ. Phố chợ ồn ã là nơi ngươi lớn lên, học cách tự sống từ rất sớm.",
+    desc: "Khởi đầu khó nhất: không một đồng linh tài, không chỗ dựa. Bù lại, mọi cơ duyên đều là của riêng ngươi." },
+  { id: "clan", name: "Tu tiên thế gia", weight: 12, resources: 45, sect: "none",
+    text: "Ngươi chào đời trong một gia tộc tu tiên. Kỳ vọng đặt lên ngươi từ ngày đầu, dù linh căn còn chưa rõ.",
+    desc: "Gia tộc có sẵn linh thạch, đan dược. Nhiều linh tài khởi đầu giúp vượt các bình cảnh đầu nhẹ nhàng hơn." },
+  { id: "sect_servant", name: "Con nhà tạp dịch tông môn", weight: 10, resources: 10, sect: "member",
+    text: "Cha mẹ ngươi làm tạp dịch trong một tông môn. Ngươi lớn lên giữa sơn môn, nhìn các đệ tử ngự kiếm qua đầu.",
+    desc: "Lớn lên trong tông môn: là đệ tử ngay từ đầu (tu luyện nhanh hơn 5%, có bổng lộc), không cần qua khảo hạch nhập môn." },
+  { id: "noble", name: "Hậu duệ vương phủ", weight: 7, resources: 60, sect: "none",
+    text: "Ngươi sinh ra trong vương phủ, gấm vóc từ nhỏ. Nhưng trong mắt tiên nhân, quyền thế phàm gian chẳng đáng là bao.",
+    desc: "Giàu nhất trong các xuất thân phàm tục. Linh tài dồi dào, nhưng quyền thế phàm gian không mua được linh căn." },
+  // ---- Xuất thân bổ sung (bonus cộng lúc chào đời)
+  { id: "physician", name: "Con nhà lang y", weight: 8, resources: 20, sect: "none",
+    text: "Ngươi lớn lên giữa mùi thuốc bắc và tiếng chày giã thuốc. Từ bé đã quen bắt mạch, phân biệt trăm loại thảo dược.",
+    desc: "Hiểu dược tính, biết dưỡng sinh: thọ nguyên phàm thể dài hơn, ngộ tính nhỉnh hơn người.",
+    bonus: { lifespan: 8, comprehension: 3 } },
+  { id: "scholar", name: "Con nhà thư hương", weight: 8, resources: 15, sect: "none",
+    text: "Cha ngươi là thầy đồ có tiếng trong huyện. Ngươi biết chữ trước khi biết leo cây, thuộc lòng kinh sử từ thuở nhỏ.",
+    desc: "Đọc nhiều hiểu rộng: ngộ tính cao hơn rõ rệt — hợp với các đạo đồ nặng khảo hạch.",
+    bonus: { comprehension: 7 } },
+  { id: "temple", name: "Tiểu đạo đồng nơi cổ quán", weight: 6, resources: 5, sect: "none",
+    text: "Ngươi bị bỏ trước cổng một đạo quán cổ, được lão đạo sĩ nuôi lớn bằng cháo loãng và tiếng chuông sớm chiều.",
+    desc: "Lớn lên trong tiếng kinh: tâm tính thuần hậu, mang sẵn chút thiện nghiệp và ngộ tính.",
+    bonus: { comprehension: 3, virtue: 6, luck: 2 } },
+  { id: "hunter", name: "Con nhà thợ săn rừng thiêng", weight: 7, resources: 10, sect: "none",
+    text: "Ngươi theo cha vào rừng từ năm lên sáu, quen với tiếng sói tru và dấu chân yêu thú trên tuyết.",
+    desc: "Thân thể rắn rỏi, gan dạ: thọ nguyên phàm thể dài hơn, khí vận khá — sinh tồn giỏi ở các giới hiểm ác.",
+    bonus: { lifespan: 6, luck: 3 } },
+  { id: "fallen_clan", name: "Hậu duệ thế gia sa sút", weight: 5, resources: 20, sect: "none",
+    text: "Tổ tiên ngươi từng là tu tiên thế gia lừng lẫy, nay chỉ còn tòa nhà cũ và một cuốn gia phả rách nát.",
+    desc: "Huyết mạch cũ còn sót lại chút khí vận và ngộ tính; linh tài không nhiều như thời hoàng kim.",
+    bonus: { luck: 4, comprehension: 3 } },
+  { id: "demonic", name: "Con của ma tu", weight: 4, resources: 40, sect: "none",
+    text: "Ngươi sinh ra trong hang ổ của một ma tu. Thứ đầu tiên ngươi nhớ là ánh lửa đỏ và tiếng tụng chú lạnh lẽo.",
+    desc: "Linh tài dồi dào nhưng mang sẵn ác nghiệp từ thuở lọt lòng — dễ sinh tâm ma nếu đi tiếp đường tà.",
+    bonus: { sin: 8, luck: -2 } },
+  { id: "omen", name: "Sinh ra có dị tượng", weight: 3, resources: 10, sect: "none",
+    text: "Đêm ngươi chào đời, trăm chim bay quanh mái nhà và một luồng tử khí từ phương đông kéo đến. Thầy tướng số lặng người hồi lâu.",
+    desc: "Hiếm nhất: trời sinh khí vận và ngộ tính hơn người. Người ta đồn ngươi là tiên nhân chuyển thế.",
+    bonus: { luck: 8, comprehension: 5 } },
 ];
+
 
 // Đạo đồ: chọn khi thức tỉnh linh căn. Mỗi đạo đồ có ngân hàng câu hỏi và lợi thế riêng.
 export const PATHS = [
