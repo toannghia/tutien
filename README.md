@@ -41,6 +41,10 @@ Game mô phỏng một đời tu tiên. Chạy trên Cloudflare Workers + D1, d�
 - **Đạo vị (Elo, K = 32)** chỉ áp dụng cho tài khoản đã đăng ký. Khách được đấu thử nhưng không được tính điểm. Bậc danh hiệu: Sơ học → Nhập thất → Chân truyền → Tông sư → Đạo tôn.
 - **Deploy:** Durable Objects được tạo tự động khi `wrangler deploy` (migration `v1` trong `wrangler.jsonc`). Chạy thêm `npm run db:migrate:remote` để tạo bảng `ratings`, `duels`.
 
+## Chân dung theo cảnh giới
+
+`public/avatar.js` vẽ chân dung SVG bằng code (không dùng ảnh) cho 14 cảnh giới, nam/nữ khác kiểu tóc. Mỗi cảnh giới đổi phục sức, mũ/miện, ấn ký giữa trán (từ Hóa Thần), dị tượng phía sau (linh khí, kim đan, nguyên anh, thiên lôi, hư không, âm dương, kim liên, phù văn, đế miện…) và khung viền. Chân dung đổi ngay khi lên cảnh giới (có hiệu ứng lóe sáng), hiện ở bảng nhân vật, màn đột phá, kết cục, lịch sử, luận đạo và ảnh số mệnh.
+
 ## Bảng xếp hạng
 
 Năm tab: **Cảnh giới**, **Sống lâu** (mỗi tu sĩ tính kiếp tốt nhất, lọc được theo giới diện và môn phái qua `/api/leaderboard?by=&world=&sect=`), **Đạo vị** (luận đạo), **Môn phái** (24 phái xếp theo thế lực / điểm tỷ võ / số đệ tử) và **Giới diện** (8 giới xếp theo số tu sĩ). Nút "Cao thủ ›" ở bảng phái/giới mở bảng cao thủ đã lọc sẵn.

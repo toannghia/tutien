@@ -2,6 +2,7 @@
 // Mọi logic game nằm trên máy chủ; client chỉ hiển thị và gửi lựa chọn.
 
 import { createWorldMap } from "./worldmap.js";
+import { avatarSvg } from "./avatar.js";
 
 const $view = document.getElementById("view");
 const HUES = [30, 140, 155, 45, 210, 270, 230, 190, 0, 50, 40, 280, 300, 15];
@@ -156,6 +157,10 @@ async function renderHome() {
 }
 
 const pad = (n) => String(n).padStart(3, "0");
+// Chân dung nhân vật theo cảnh giới hiện tại
+const portrait = (run, realm, size = 96, opts = {}) => avatarSvg(realm, run.profile.gender, { seed: run.seed ?? 0, size, title: `${run.profile.name} — ${app.codex.realms[realm]?.name ?? ""}`, ...opts });
+// Người chơi khác (luận đạo): không biết giới tính → suy từ tên cho ổn định
+const nameSeed = (name = "") => [...name].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
 
 function mountainsSvg() {
   return `<svg class="mountains" viewBox="0 0 1400 400" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
@@ -393,8 +398,13 @@ function sheetHtml(el, run, { realm, label, age, stat, shown = run.facts.length 
   const meter = (k, v, max, cls = "") =>
     `<div class="meter"><div class="row"><span class="muted">${k}</span><span>${fmt(v)}${max ? ` / ${fmt(max)}` : ""}</span></div>${max ? `<div class="bar ${cls}"><i style="width:${Math.min(100, (v / max) * 100)}%"></i></div>` : ""}</div>`;
   const open = el.classList.contains("open");
+  // Đổi cảnh giới → chân dung mới, kèm hiệu ứng lóe sáng
+  const prevRealm = el.dataset.realm === undefined ? realm : Number(el.dataset.realm);
+  el.dataset.realm = realm;
+  const up = realm > prevRealm;
   el.innerHTML = `
     <div class="who">
+      <div class="who-av ${up ? "av-up" : ""}">${portrait(run, realm, 96)}</div>
       <div class="muted small">KIẾP ${pad(run.number)} · ${esc(byId(c.worlds, p.world).name)}</div>
       <h2>${esc(p.name)}</h2><span class="realm-badge" style="--hue:${HUES[realm]}">${esc(label)}</span>
       <button class="sheet-toggle" aria-expanded="${open}" aria-label="Chi tiết nhân vật">${open ? "Thu gọn ▴" : "Chi tiết ▾"}</button>
@@ -710,7 +720,7 @@ function resultScene(modal, fact) {
     const gain = b.lifespan ? b.lifespan[1] - b.lifespan[0] : 0;
     html = `<div class="bt-result success ${asc ? "ascend" : ""}">
       <div class="bt-burst"></div>${particles(asc ? 40 : 26)}
-      <div class="bt-big">${asc ? "道" : b.tribulation ? "渡" : "成"}</div>
+      ${app.run ? `<div class="bt-avatar">${portrait(app.run, asc ? 13 : realmIndexOf(b.to), 132)}</div>` : `<div class="bt-big">${asc ? "道" : b.tribulation ? "渡" : "成"}</div>`}
       <h2>${asc ? "Chứng đạo bất hủ!" : b.tribulation ? "Độ kiếp thành công!" : "Đột phá thành công!"}</h2>
       <p class="bt-cheer">${asc ? "Thân hợp thiên địa, tên lưu vạn giới. Một đời cầu đạo đã viên mãn." : esc(pickOne(CONGRATS)(b.to))}</p>
       <div class="bt-stats">
@@ -804,7 +814,7 @@ async function showEnding() {
   if (unlocked.length) await refreshMe();
   const achNames = (ids) => ids.map((id) => byId(app.codex.achievements, id)?.name).filter(Boolean);
   box.innerHTML = `<div class="ending-card ${run.ascended ? "ascended" : ""}">
-    <div class="glyph">${run.ascended ? "道" : "終"}</div>
+    <div class="end-avatar ${run.ascended ? "" : "faded"}">${portrait(run, run.realm, 112, { animate: !!run.ascended })}<span class="glyph">${run.ascended ? "道" : "終"}</span></div>
     <div class="muted small">KẾT CỤC KIẾP ${pad(run.number)}</div>
     <h2>${esc(run.endingReason)}</h2>
     <div class="muted">${esc(run.realmLabel)} · hưởng thọ ${fmt(run.age)} tuổi</div>
@@ -887,15 +897,21 @@ async function buildFateCard(run) {
   g.beginPath();
   g.moveTo(0, 1350); g.lineTo(0, 1060); g.lineTo(200, 900); g.lineTo(360, 1010); g.lineTo(560, 820); g.lineTo(760, 990); g.lineTo(920, 880); g.lineTo(1080, 980); g.lineTo(1080, 1350);
   g.fill();
-  g.fillStyle = "rgba(170,140,82,.14)";
-  g.beginPath(); g.arc(860, 230, 90, 0, Math.PI * 2); g.fill();
   g.strokeStyle = "#a5b497"; g.lineWidth = 2; g.strokeRect(36, 36, 1008, 1278);
   g.strokeStyle = PALETTE.line; g.lineWidth = 1; g.strokeRect(50, 50, 980, 1250);
 
-  // Ấn triện
+  // Chân dung theo cảnh giới cuối cùng + ấn triện nhỏ góc phải
+  try {
+    const img = new Image();
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(portrait(run, run.realm, 176, { animate: false }));
+    await img.decode();
+    g.drawImage(img, 452, 64, 176, 176);
+  } catch {
+    center(run.ascended ? "道" : "命", 178, 60, PALETTE.red);
+  }
   const seal = run.ascended ? "道" : "命";
-  g.strokeStyle = PALETTE.red; g.lineWidth = 3; g.strokeRect(495, 110, 90, 90);
-  center(seal, 178, 60, PALETTE.red);
+  g.strokeStyle = PALETTE.red; g.lineWidth = 3; g.strokeRect(880, 84, 70, 70);
+  font(46, 500, "Noto Serif"); g.fillStyle = PALETTE.red; g.textAlign = "center"; g.fillText(seal, 915, 136);
 
   center(`THIÊN MỆNH QUYỂN · KIẾP ${pad(run.number)}`, 262, 24, PALETTE.muted, 500, "Be Vietnam Pro");
   center(p.name, 360, 80, PALETTE.ink);
@@ -1038,7 +1054,7 @@ async function renderHistoryDetail(id) {
   const end = run.status === "abandoned" ? run.storedEnding || "Luân hồi sớm" : run.endingReason || run.storedEnding;
   document.getElementById("timeline").insertAdjacentHTML(
     "beforebegin",
-    `<div class="ending-card ${run.ascended ? "ascended" : ""}"><div class="glyph">${run.ascended ? "道" : "終"}</div><h2>${esc(end)}</h2><div class="muted">${esc(run.realmLabel)} · ${fmt(run.age)} tuổi</div>
+    `<div class="ending-card ${run.ascended ? "ascended" : ""}"><div class="end-avatar ${run.ascended ? "" : "faded"}">${portrait(run, run.realm, 112, { animate: false })}<span class="glyph">${run.ascended ? "道" : "終"}</span></div><h2>${esc(end)}</h2><div class="muted">${esc(run.realmLabel)} · ${fmt(run.age)} tuổi</div>
       ${run.status === "finished" ? `<div class="actions" style="margin-top:16px"><button class="btn ghost" id="shareOld">Chia sẻ · Lưu ảnh</button></div>` : ""}</div>`,
   );
   document.getElementById("shareOld")?.addEventListener("click", () => openShare(run));
@@ -1524,7 +1540,8 @@ const setPhase = (t) => {
 };
 
 function fighterHtml(f, side) {
-  return `<div class="avatar">${esc(f.name[0])}</div><div class="fname">${esc(f.name)}${f.bot ? ' <span class="muted small">(tàn ảnh)</span>' : ""}</div>
+  const seed = nameSeed(f.name);
+  return `<div class="avatar av">${avatarSvg(f.realm ?? 0, seed % 2 ? "female" : "male", { seed, size: 44, animate: false })}</div><div class="fname">${esc(f.name)}${f.bot ? ' <span class="muted small">(tàn ảnh)</span>' : ""}</div>
     ${f.title ? `<div class="chief-tag line">掌 ${esc(f.title)}</div>` : ""}
     <div class="muted small line">${f.guest ? "Khách" : `${fmt(f.rating)}<span class="rk"> · ${esc(rankTitle(f.rating))}</span>`}</div>
     <div class="muted small line realm-line">${esc(app.codex.realms[f.realm]?.name ?? "")}</div>
@@ -2319,7 +2336,7 @@ function openQuestionEditor(item, onSaved) {
 }
 
 // Chỉ khi chạy local: cho phép gọi thử các cảnh đột phá từ console để xem hiệu ứng
-if (location.hostname === "localhost") window.__tt = { openBreakthrough, chargeScene, resultScene, app };
+if (location.hostname === "localhost") window.__tt = { openBreakthrough, chargeScene, resultScene, buildFateCard, app };
 
 boot().catch((e) => ($view.innerHTML = `<div class="empty">Không khởi động được: ${esc(e.message)}</div>`));
 
