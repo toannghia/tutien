@@ -3,6 +3,7 @@
 
 import { createWorldMap } from "./worldmap.js";
 import { avatarSvg } from "./avatar.js";
+import { flagSvg } from "./banner.js";
 
 const $view = document.getElementById("view");
 const HUES = [30, 140, 155, 45, 210, 270, 230, 190, 0, 50, 40, 280, 300, 15];
@@ -1189,7 +1190,7 @@ async function renderRank(by = "realm") {
         .map((s, i) => {
           const d = byId(c.sects, s.id);
           return `<a class="item link" href="#/sects/${s.id}"><div class="no ${i < 3 && s[key] ? "top" : ""}">${i + 1}</div>
-            <span class="sglyph">${esc(d?.glyph ?? "")}</span>
+            <span class="sflag">${flagSvg(s.id, d?.glyph ?? "", { size: 46, wave: false, title: `Cờ ${d?.name ?? ""}` })}</span>
             <div class="main"><div class="title">${esc(d?.name ?? s.id)}</div>
               <div class="sub">${esc(byId(c.worlds, s.world)?.name ?? "")} · ${fmt(s.members)} đệ tử · đỉnh cao ${esc(s.topRealm == null ? "—" : c.realms[s.topRealm]?.name ?? "—")}</div>
               <div class="sub">${s.chief ? `掌 <b>${esc(s.chief.name)}</b>` : s.leader ? `Mạnh nhất: <b>${esc(s.leader.name)}</b>` : "Chưa có đệ tử."} · <span class="linkish" data-jump-sect="${s.id}">Cao thủ ›</span></div></div>
@@ -1279,7 +1280,7 @@ async function renderCodex(tab = "realms") {
           ),
         )
         .join(""),
-    sects: () => c.worlds.map((w) => `<div class="card"><h3>${esc(w.name)}</h3>${c.sects.filter((x) => x.world === w.id).map((x) => `<div class="kv"><span class="k">${esc(x.glyph)} ${esc(x.name)}</span></div><div class="muted small" style="margin-bottom:6px">${esc(x.desc)}${x.perk ? `<br><span class="sect-perk">✦ ${esc(x.perk)}</span>` : ""}</div>`).join("")}</div>`).join(""),
+    sects: () => c.worlds.map((w) => `<div class="card"><h3>${esc(w.name)}</h3>${c.sects.filter((x) => x.world === w.id).map((x) => `<div class="kv codex-sect"><span class="sflag">${flagSvg(x.id, x.glyph, { size: 40, wave: false })}</span><span class="k">${esc(x.name)}</span></div><div class="muted small" style="margin-bottom:6px">${esc(x.desc)}${x.perk ? `<br><span class="sect-perk">✦ ${esc(x.perk)}</span>` : ""}</div>`).join("")}</div>`).join(""),
     paths: () => c.paths.map((p) => card(`${p.glyph} ${p.name}`, `${esc(p.desc)}<br/><b>${esc(p.perk)}</b><br/>Ngân hàng: ${p.questions} câu hỏi · khảo hạch khi nhập môn, ở giảng đường tông môn, trước mỗi bình cảnh (vấn tâm) và khi gặp kỳ nhân.`)).join(""),
     roots: () => c.roots.map((r) => card(r.name, `${esc(r.desc)}<br/>Điểm linh căn: ${r.score}`)).join(""),
     physiques: () => c.physiques.map((p) => card(p.name, esc(p.desc))).join(""),
@@ -1990,7 +1991,7 @@ async function renderWorld(selected) {
         .map(
           (s, i) => `<div class="sect-row">
             <div class="sect-rank ${i === 0 && s.power ? "first" : ""}">${i + 1}</div>
-            <span class="sglyph">${esc(sectDef(s.id)?.glyph ?? "")}</span>
+            <span class="sflag">${flagSvg(s.id, sectDef(s.id)?.glyph ?? "", { size: 46, wave: false, title: `Cờ ${sectDef(s.id)?.name ?? ""}` })}</span>
             <div class="main"><div class="title">${esc(sectDef(s.id)?.name ?? s.id)}${i === 0 && s.power ? ' <span class="crown">mạnh nhất</span>' : ""}</div>
               <div class="sub">${esc(sectDef(s.id)?.desc ?? "")}</div>
               <div class="power"><i style="width:${(Number(s.power) / maxPower) * 100}%"></i></div>
@@ -2432,7 +2433,7 @@ async function renderSects() {
         const d = byId(c.sects, s.id);
         return `<a class="item link" href="#/sects/${s.id}">
           <div class="no ${i < 3 && s.points ? "top" : ""}">${i + 1}</div>
-          <span class="sglyph">${esc(d?.glyph ?? "")}</span>
+          <span class="sflag">${flagSvg(s.id, d?.glyph ?? "", { size: 46, wave: false, title: `Cờ ${d?.name ?? ""}` })}</span>
           <div class="main"><div class="title">${esc(d?.name ?? s.id)}${s.id === mySect ? ' <span class="crown">phái của ngươi</span>' : ""}</div>
             <div class="sub">${esc(byId(c.worlds, d?.world)?.name ?? "")} · ${fmt(s.disciples)} đệ tử tại thế</div>
             <div class="sub">${s.chief ? `掌 <b>${esc(s.chief.name)}</b> — ${esc(realmOf(s.chief.realm))}` : `<span class="phase-tag ${s.phase}">${PHASE[s.phase] || "Ghế trống"}</span> còn ${timeLeft(s.phaseEnds)}`}</div>
@@ -2491,7 +2492,7 @@ async function renderSect(id) {
 
   $view.innerHTML = `<div class="page sect-page">
     <p><a href="#/sects" class="muted small">‹ Môn phái</a></p>
-    <div class="wd-head"><span class="wglyph big">${esc(d?.glyph ?? "")}</span><div><h1>${esc(d?.name ?? id)}</h1>
+    <div class="wd-head"><span class="sflag big">${flagSvg(id, d?.glyph ?? "", { size: 110, title: `Cờ ${d?.name ?? ""}` })}</span><div><h1>${esc(d?.name ?? id)}</h1>
       <div class="muted small">${esc(byId(c.worlds, d?.world)?.name ?? "")} · ${esc(d?.desc ?? "")} · ${fmt(s.disciples)} đệ tử tại thế</div>
       ${d?.perk ? `<div class="sect-perk">✦ ${esc(d.perk)}</div>` : ""}</div></div>
     ${myStatus}

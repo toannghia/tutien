@@ -95,6 +95,7 @@ Mọi danh vị gắn với **nhân vật của kiếp đang chơi**, không ph�
 - **Mất ghế khi:** nhân vật tọa hóa, luân hồi sớm, bị trục xuất / rời phái, hoặc bế quan quá `leaderIdleDays` ngày (cron hằng ngày kiểm tra). Mọi đời chưởng môn được ghi lại kèm lý do.
 - **Quyền chưởng môn:** lời hiệu triệu (≤120 ký tự, chặn link và lời thô tục; admin gỡ được), tên trên Vạn Giới Đồ, danh xưng "Chưởng môn …" trong luận đạo.
 - **Admin** (tab Môn phái): chuyển vòng ngay, bãi nhiệm, gỡ lời hiệu triệu. Thời gian các giai đoạn chỉnh trong Cấu hình chỉ số.
+- **Cờ môn phái:** `public/banner.js` vẽ cờ đuôi nheo SVG cho từng phái (màu, hoa văn, chữ hiệu riêng), hiện ở trang phái, bảng xếp hạng, cẩm nang và cắm cạnh tông môn trên Vạn Giới Đồ.
 - Code: `src/sect.ts` (luật), `src/sect-api.ts` (API), migration `0007_sect_politics.sql`.
 
 ## Quản lý câu hỏi (admin)

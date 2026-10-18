@@ -812,3 +812,22 @@ button, a, .option { touch-action: manipulation; -webkit-tap-highlight-color: tr
   .life-av .avatar-svg { width: 48px; height: 48px; }
   .lives::before { left: 34px; }
 }
+
+/* ---------- Cờ môn phái */
+.sect-flag { display: block; overflow: visible; filter: drop-shadow(0 2px 3px rgb(0 0 0 / .25)); }
+.sect-flag.wave .flag-cloth { transform-box: view-box; transform-origin: 10px 12px; animation: flagwave 3.6s ease-in-out infinite; }
+@keyframes flagwave { 0%, 100% { transform: skewY(0deg) scaleX(1); } 50% { transform: skewY(2.5deg) scaleX(.97); } }
+@media (prefers-reduced-motion: reduce) { .sect-flag.wave .flag-cloth { animation: none; } }
+.sflag { display: inline-flex; justify-content: center; }
+.sflag.big { margin-right: 6px; }
+.sect-board .item { grid-template-columns: 36px 40px 1fr auto; }
+.codex-sect { justify-content: flex-start !important; gap: 10px; align-items: center; }
+.wm-sect-head { display: flex; gap: 10px; align-items: center; }
+.wm-sect-head h3 { margin: 2px 0; }
+.sect-row { grid-template-columns: 28px 40px 1fr auto; }
+@media (max-width: 900px) {
+  .sect-board .item { grid-template-columns: 26px 34px 1fr; }
+  .sect-board .sflag .sect-flag { width: 30px; height: 46px; }
+  .sect-row { grid-template-columns: 22px 34px 1fr; }
+  .sflag.big .sect-flag { width: 56px; height: 88px; }
+}

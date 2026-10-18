@@ -1,3 +1,4 @@
+import { flagColors, flagSvg } from "./banner.js";
 // Vạn Giới Đồ — bản đồ thế giới kiểu bản đồ giấy cổ, sinh tất định từ seed (ai mở cũng thấy cùng một bản đồ).
 // Phóng to/thu nhỏ bằng viewBox: cuộn chuột, chụm 2 ngón, kéo để di chuyển, bấm vùng để bay tới.
 
@@ -271,6 +272,12 @@ function roads(places) {
     .join("");
 }
 
+// Cờ nhỏ cắm cạnh mái chùa, màu theo cờ môn phái
+const mapFlag = (id) => {
+  const [bg, edge] = flagColors(id);
+  return `<g class="map-flag" transform="translate(12,-30)"><rect x="-1" y="0" width="1.6" height="30" fill="#5a3a22"/><path d="M0.6 1 h12 v9 l-3 3 l-3 -3 l-3 3 l-3 -3 z" fill="${bg}" stroke="${edge}" stroke-width=".8"/></g>`;
+};
+
 const pagoda = (s) =>
   `<path d="M-14,4 L14,4 L10,-2 L-10,-2Z M-11,-2 L11,-2 L7,-9 L-7,-9Z M-8,-9 L8,-9 L0,-18Z" fill="#a8553e" stroke="#5a2a1d" stroke-width="1"/><rect x="-7" y="4" width="14" height="8" fill="#f1e5c8" stroke="#5a2a1d" stroke-width="1"/>`;
 
@@ -353,7 +360,7 @@ export function createWorldMap(host, { data, codex, esc, fmt, realmName, onSelec
           return `<g class="wm-place town" transform="translate(${p.x.toFixed(0)},${p.y.toFixed(0)})"><g class="k"><circle r="5.5" fill="#fff8e6" stroke="#5a3d22" stroke-width="2"/><circle r="2" fill="#5a3d22"/><text y="-11" class="lbl town-lbl">${esc(p.name)}</text></g></g>`;
         const st = sectStat(p.id);
         const scale = 0.85 + 0.6 * Math.sqrt(Number(st?.power ?? 0) / maxPower);
-        return `<g class="wm-place sect" data-sect="${p.id}" data-region="${p.region}" transform="translate(${p.x.toFixed(0)},${p.y.toFixed(0)})"><g class="k" style="--sz:${scale.toFixed(2)}"><circle r="22" fill="transparent"/>${pagoda()}<text y="27" class="lbl sect-lbl">${esc(p.name)}</text></g></g>`;
+        return `<g class="wm-place sect" data-sect="${p.id}" data-region="${p.region}" transform="translate(${p.x.toFixed(0)},${p.y.toFixed(0)})"><g class="k" style="--sz:${scale.toFixed(2)}"><circle r="22" fill="transparent"/>${pagoda()}${mapFlag(p.id)}<text y="27" class="lbl sect-lbl">${esc(p.name)}</text></g></g>`;
       })
       .join("")}</g>
     <!-- Tên vùng + số tu sĩ -->
@@ -571,7 +578,7 @@ export function createWorldMap(host, { data, codex, esc, fmt, realmName, onSelec
     selectRegion(region, false);
     flyTo({ x: p.x - 210, y: p.y - 150, w: 420, h: 300 }, 0.05);
     card.innerHTML = `<button class="wm-x" aria-label="Đóng">×</button>
-      <div class="muted small">Môn phái · ${esc(worldName(region))}</div><h3>${esc(def.glyph)} ${esc(def.name)}</h3>
+      <div class="wm-sect-head"><span class="sflag">${flagSvg(sid, def.glyph, { size: 58 })}</span><div><div class="muted small">Môn phái · ${esc(worldName(region))}</div><h3>${esc(def.name)}</h3></div></div>
       <div class="muted small">${esc(def.desc)}</div>
       <div class="wm-kv"><span>Thế lực</span><b>${fmt(s?.power ?? 0)}</b><span>Đệ tử</span><b>${fmt(s?.members ?? 0)}</b><span>Trưởng lão</span><b>${fmt(s?.elders ?? 0)}</b><span>Đỉnh cao</span><b>${esc(realmName(s?.topRealm))}</b></div>
       ${s?.chief ? `<div class="small">掌 Chưởng môn: <b>${esc(s.chief.name)}</b> — ${esc(realmName(s.chief.realm))}</div>${s.chief.motto ? `<div class="small muted">“${esc(s.chief.motto)}”</div>` : ""}` : `<div class="small muted">Ghế chưởng môn đang trống.</div>`}
