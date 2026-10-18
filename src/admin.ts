@@ -5,6 +5,7 @@ import { REALMS, WORLDS, PATHS } from "./game/data";
 import { clearSettingsCache, DEFAULTS, getSettings, SETTINGS, validateSettings } from "./settings";
 import { makeQuestion } from "./game/quiz/types";
 import { clearQuizCache, currentVersion, rowToQuestion, type QuestionRow } from "./quiz-store";
+import { tickSect, vacateByRun } from "./sect";
 
 type User = { id: string; name: string; email: string; isAnonymous?: boolean | null };
 
@@ -276,4 +277,23 @@ admin.post("/questions/import", async (c) => {
   await db.batch([...stmts, bump(db, v)]);
   clearQuizCache();
   return c.json({ ok: true, added: stmts.length, version: v });
+});
+
+// ---------------------------------------------------------------- Môn phái
+// Gỡ lời hiệu triệu không phù hợp
+admin.delete("/sects/:id/motto", async (c) => {
+  await c.env.DB.prepare("UPDATE sect_state SET motto = NULL, updated_at = ? WHERE sect_id = ?").bind(Date.now(), c.req.param("id")).run();
+  return c.json({ ok: true });
+});
+// Kết thúc sớm giai đoạn hiện tại (đại bỉ / bỏ phiếu) để chuyển vòng ngay
+admin.post("/sects/:id/advance", async (c) => {
+  const id = c.req.param("id");
+  await c.env.DB.prepare("UPDATE sect_state SET phase_ends = ? WHERE sect_id = ? AND phase != 'none'").bind(Date.now() - 1, id).run();
+  return c.json(await tickSect(c.env.DB, id, await getSettings(c.env.DB)));
+});
+// Bãi nhiệm chưởng môn (vi phạm)
+admin.post("/sects/:id/depose", async (c) => {
+  const s = await c.env.DB.prepare("SELECT leader_run FROM sect_state WHERE sect_id = ?").bind(c.req.param("id")).first<{ leader_run: string | null }>();
+  if (s?.leader_run) await vacateByRun(c.env.DB, s.leader_run, "Bị Thiên Đạo bãi nhiệm");
+  return c.json({ ok: true });
 });

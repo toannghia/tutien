@@ -25,6 +25,7 @@ export type Fighter = {
   path: string | null;
   guest: boolean;
   bot: boolean;
+  title?: string | null; // "Chưởng môn …" nếu nhân vật đang giữ ghế
 };
 
 // ---------------------------------------------------------------- Chấm điểm

@@ -8,6 +8,8 @@ import { review } from "./review";
 import { gameConfigOf, getSettings } from "./settings";
 import { banksFor, currentBanks, familyOf, idsForFamilies } from "./quiz-store";
 import { dueFamilies, recordAnswers } from "./srs";
+import { leaderTitle, onRunEnded, tickAll } from "./sect";
+import { sects } from "./sect-api";
 
 export { Matchmaker } from "./duel/matchmaker";
 export { DuelRoom } from "./duel/room";
@@ -88,6 +90,7 @@ app.post("/api/game/runs", async (c) => {
   const id = crypto.randomUUID();
   const now = Date.now();
   const pity = profile.isGood ? 0 : (stats?.pity_count ?? 0) + 1;
+  const prev = await db.prepare("SELECT id FROM runs WHERE user_id = ? AND status = 'active'").bind(user.id).all<{ id: string }>();
 
   await db.batch([
     db.prepare("UPDATE runs SET status = 'abandoned', ended_at = ?, ending_reason = 'Luân hồi sớm' WHERE user_id = ? AND status = 'active'").bind(now, user.id),
@@ -98,6 +101,7 @@ app.post("/api/game/runs", async (c) => {
        ON CONFLICT(user_id) DO UPDATE SET total_runs = total_runs + 1, pity_count = ?2, updated_at = ?3`,
     ).bind(user.id, pity, now),
   ]);
+  for (const r of prev.results) await onRunEnded(db, r.id, "Luân hồi sớm");
   const unlocked = await saveProgress(db, id, user.id, state);
   return c.json({ ...view(id, (last?.n ?? 0) + 1, profile, state), unlocked }, 201);
 });
@@ -114,6 +118,7 @@ app.get("/api/game/runs/current", async (c) => {
     if (!(e instanceof InvalidChoiceError)) throw e;
     await c.env.DB.prepare("UPDATE runs SET status = 'abandoned', ended_at = ?, ending_reason = 'Thiên đạo biến đổi (cập nhật nội dung)' WHERE id = ?")
       .bind(Date.now(), run.id).run();
+    await onRunEnded(c.env.DB, run.id, "Thiên đạo biến đổi");
     return c.json(null);
   }
 });
@@ -201,18 +206,19 @@ app.get("/api/leaderboard", async (c) => {
 
 app.route("/api/admin", admin);
 app.route("/api/review", review);
+app.route("/api/sects", sects);
 
 // ---------------------------------------------------------------- Bản đồ thế giới
 
 // Công khai, cache 60 giây ở edge. Mỗi người chỉ tính kiếp tốt nhất khi xếp hạng.
 app.get("/api/world", async (c) => {
   const cache = caches.default;
-  const key = new Request(new URL("/api/world?v=1", c.req.url).toString());
+  const key = new Request(new URL("/api/world?v=2", c.req.url).toString());
   const hit = await cache.match(key);
   if (hit) return hit;
   const db = c.env.DB;
   const name = (r: { name: string; isAnonymous: number | null }) => (r.isAnonymous ? GUEST_NAME : r.name);
-  const [totals, worlds, worldTop, sects, sectTop] = await db.batch([
+  const [totals, worlds, worldTop, sects, sectTop, sectChief] = await db.batch([
     db.prepare(`SELECT COUNT(DISTINCT user_id) AS players, COUNT(*) AS lives, SUM(status = 'active') AS active FROM runs`),
     db.prepare(
       `SELECT world, COUNT(DISTINCT user_id) AS players, COUNT(*) AS lives, SUM(status = 'active') AS active,
@@ -239,11 +245,13 @@ app.get("/api/world", async (c) => {
          FROM runs r JOIN "user" u ON u.id = r.user_id
          WHERE r.sect_id IS NOT NULL AND r.sect_rank IN ('member', 'elder')) WHERE rn = 1`,
     ),
+    db.prepare(`SELECT s.sect_id, s.leader_name, s.leader_realm, s.motto FROM sect_state s JOIN runs r ON r.id = s.leader_run WHERE r.status = 'active'`),
   ]);
   type Row = Record<string, unknown>;
   const rows = (r: D1Result) => r.results as Row[];
   const sectStats = new Map(rows(sects).map((r) => [r.sect_id as string, r]));
   const sectLead = new Map(rows(sectTop).map((r) => [r.sect_id as string, r]));
+  const chiefs = new Map(rows(sectChief).map((r) => [r.sect_id as string, r]));
   const worldStats = new Map(rows(worlds).map((r) => [r.world as string, r]));
   const body = {
     totals: rows(totals)[0] ?? { players: 0, lives: 0, active: 0 },
@@ -264,7 +272,9 @@ app.get("/api/world", async (c) => {
           .map((x) => {
             const st = sectStats.get(x.id);
             const lead = sectLead.get(x.id);
+            const ch = chiefs.get(x.id);
             return {
+              chief: ch ? { name: ch.leader_name, realm: ch.leader_realm, motto: ch.motto } : null,
               id: x.id,
               members: st?.members ?? 0,
               elders: st?.elders ?? 0,
@@ -302,6 +312,7 @@ async function fighterOf(env: Env, user: User): Promise<Fighter> {
     path: null,
     guest: !!user.isAnonymous,
     bot: false,
+    title: await leaderTitle(env.DB, user.id),
   };
 }
 
@@ -403,6 +414,8 @@ async function saveProgress(db: D1Database, runId: string, userId: string, s: Ru
     );
   }
   await db.batch(stmts);
+  // Kiếp khép lại: điểm tỷ võ tan biến, ghế chưởng môn (nếu có) bỏ trống
+  if (finished) await onRunEnded(db, runId, "Tọa hóa");
   return unlocked;
 }
 
@@ -421,5 +434,7 @@ export default {
       `DELETE FROM "user" WHERE isAnonymous = 1 AND createdAt < ?1
        AND NOT EXISTS (SELECT 1 FROM session s WHERE s.userId = "user".id AND s.updatedAt >= ?1)`,
     ).bind(cutoff).run();
+    // Chính sự môn phái: kiểm chưởng môn bế quan / tọa hóa, chuyển vòng bầu
+    await tickAll(env.DB, await getSettings(env.DB), true);
   },
 } satisfies ExportedHandler<Env>;

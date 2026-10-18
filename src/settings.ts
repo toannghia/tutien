@@ -27,6 +27,9 @@ export const SETTINGS: SettingSpec[] = [
   { key: "botWaitMax", group: "duel", label: "Chờ tối đa trước khi ghép bot (giây)", help: "Phải ≥ thời gian chờ tối thiểu.", type: "number", min: 4, max: 60, step: 1, default: 12 },
   { key: "eloK", group: "duel", label: "Hệ số Elo (K)", help: "Mức Đạo vị thay đổi tối đa mỗi trận.", type: "number", min: 8, max: 64, step: 1, default: 32 },
   { key: "botLabel", group: "duel", label: "Gắn nhãn \"tàn ảnh\" cho bot", help: "Bật để người chơi biết đối thủ là bot.", type: "boolean", default: false },
+  { key: "sectContestHours", group: "duel", label: "Thời gian đại bỉ môn phái (giờ)", help: "Khi ghế chưởng môn trống: đệ tử thi đấu lấy điểm trong khoảng này, 3 người dẫn đầu thành ứng viên.", type: "number", min: 1, max: 168, step: 1, default: 24 },
+  { key: "sectVoteHours", group: "duel", label: "Thời gian bỏ phiếu chưởng môn (giờ)", help: "Đệ tử đang sống bỏ phiếu chọn một trong các ứng viên.", type: "number", min: 1, max: 72, step: 1, default: 12 },
+  { key: "leaderIdleDays", group: "duel", label: "Chưởng môn bế quan tối đa (ngày)", help: "Nhân vật chưởng môn không được chơi tiếp quá số ngày này thì mất ghế.", type: "number", min: 1, max: 60, step: 1, default: 7 },
   { key: "guestTtlDays", group: "system", label: "Giữ tài khoản khách (ngày)", help: "Tài khoản khách không hoạt động quá số ngày này sẽ bị xoá.", type: "number", min: 7, max: 365, step: 1, default: 90 },
 ];
 

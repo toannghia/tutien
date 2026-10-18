@@ -5,6 +5,7 @@ import type { Env } from "../auth";
 import { BANKS, type Question } from "../game/quiz";
 import { currentBanks, familyOf } from "../quiz-store";
 import { recordAnswers } from "../srs";
+import { awardDuel } from "../sect";
 import { botAnswer, DUEL, DUEL_DEFAULTS, eloDelta, pickDuelQuestions, points, shuffled, winnerOf, type DuelConfig, type Fighter } from "./logic";
 
 type Answer = { choiceId: string | null; ok: boolean; ms: number; points: number };
@@ -308,6 +309,9 @@ export class DuelRoom extends DurableObject<Env> {
     }
     await db.batch(stmts);
     for (const p of room.players) if (ranked(p)) p.newRating = p.rating + p.delta;
+    // Điểm tỷ võ môn phái cho kiếp đang sống (trận xếp hạng, tài khoản đã đăng ký)
+    for (const [p, res] of [[a, scoreA], [b, 1 - scoreA]] as const)
+      if (ranked(p)) await awardDuel(db, p.id, res === 1 ? "win" : res === 0.5 ? "draw" : "loss", now).catch(() => {});
     // Sổ nhớ ôn tập: mỗi câu trong trận tính như một lần ôn (người thật, kể cả khách)
     const fams = await familyOf(db, room.qids);
     for (const p of room.players) {
@@ -341,7 +345,7 @@ export class DuelRoom extends DurableObject<Env> {
   private snapshot(idx: number) {
     const room = this.room!;
     const label = this.cfg.botLabel || this.env.DUEL_BOT_LABEL === "1";
-    const pub = (p: Player) => ({ name: p.name, rating: p.rating, realm: p.realm, path: p.path, guest: p.guest, bot: label ? p.bot : false, connected: p.bot || p.connected });
+    const pub = (p: Player) => ({ name: p.name, rating: p.rating, realm: p.realm, path: p.path, guest: p.guest, title: p.title ?? null, bot: label ? p.bot : false, connected: p.bot || p.connected });
     return {
       type: "state",
       friendly: !!room.friendly,

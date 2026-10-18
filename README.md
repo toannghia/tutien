@@ -70,6 +70,17 @@ Câu đến hạn quay lại theo ba đường:
 
 Khi khách đăng ký tài khoản, sổ nhớ được gộp theo câu và giữ bản ôn gần nhất.
 
+## Môn phái: thi đấu & bầu chưởng môn
+
+Mọi danh vị gắn với **nhân vật của kiếp đang chơi**, không phải tài khoản: nhân vật tọa hóa thì điểm tỷ võ và ghế chưởng môn cũng mất.
+
+- **Điểm tỷ võ:** thắng luận đạo xếp hạng +3, hòa +1, cộng cho nhân vật và cho môn phái của nhân vật (chỉ tài khoản đã đăng ký). Có bảng xếp hạng môn phái ở `/#/sects`.
+- **Bầu chưởng môn (tự chạy khi ghế trống):** *đại bỉ* (mặc định 24 giờ) → 3 đệ tử nhiều điểm nhất thành ứng viên → *bỏ phiếu* (mặc định 12 giờ), mỗi đệ tử tại thế một phiếu, hòa phiếu xét điểm rồi cảnh giới. Đại bỉ không ai có điểm thì tự kéo dài.
+- **Mất ghế khi:** nhân vật tọa hóa, luân hồi sớm, bị trục xuất / rời phái, hoặc bế quan quá `leaderIdleDays` ngày (cron hằng ngày kiểm tra). Mọi đời chưởng môn được ghi lại kèm lý do.
+- **Quyền chưởng môn:** lời hiệu triệu (≤120 ký tự, chặn link và lời thô tục; admin gỡ được), tên trên Vạn Giới Đồ, danh xưng "Chưởng môn …" trong luận đạo.
+- **Admin** (tab Môn phái): chuyển vòng ngay, bãi nhiệm, gỡ lời hiệu triệu. Thời gian các giai đoạn chỉnh trong Cấu hình chỉ số.
+- Code: `src/sect.ts` (luật), `src/sect-api.ts` (API), migration `0007_sect_politics.sql`.
+
 ## Quản lý câu hỏi (admin)
 
 Tab **Câu hỏi** trong `/#/admin`:

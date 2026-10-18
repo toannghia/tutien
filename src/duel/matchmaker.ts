@@ -141,7 +141,7 @@ export class Matchmaker extends DurableObject<Env> {
   }
 
   private async startRoom(humans: { ws: WebSocket; t: Ticket }[], bot?: Fighter, friendly = false) {
-    const fighters: Fighter[] = humans.map(({ t }) => ({ id: t.id, name: t.name, rating: t.rating, realm: t.realm, path: t.path, guest: t.guest, bot: false }));
+    const fighters: Fighter[] = humans.map(({ t }) => ({ id: t.id, name: t.name, rating: t.rating, realm: t.realm, path: t.path, guest: t.guest, bot: false, title: t.title ?? null }));
     if (bot) fighters.push(bot); // bot luôn ở vị trí thứ hai
     for (const h of humans) h.ws.serializeAttachment({ ...h.t, done: true });
 

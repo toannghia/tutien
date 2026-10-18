@@ -130,6 +130,7 @@ function route() {
   const pages = { "": renderHome, play: renderPlay, world: () => renderWorld(),
     admin: () => renderAdmin(),
     review: () => renderReview(),
+    sects: arg ? () => renderSect(arg) : () => renderSects(),
     duel: arg === "join" ? () => Promise.resolve(joinRoom(arg2)) : renderDuel, history: arg ? () => renderHistoryDetail(arg) : renderHistory, rank: renderRank, codex: renderCodex };
   (pages[name] ?? renderHome)().catch((e) => ($view.innerHTML = `<div class="empty">${esc(e.message)}</div>`));
 }
@@ -146,7 +147,7 @@ async function renderHome() {
       <h1>Tu Tiên Lộ</h1>
       <p>Giữa vạn giới mênh mang, một sinh mệnh thức giấc. Phàm nhân hay tiên nhân — số mệnh nào đang đợi ngươi?</p>
       <a class="btn big" href="#/play">${current ? `Tiếp tục kiếp ${pad(current.number)}` : "Tu tiên"}</a>
-      <div class="home-links"><a href="#/review">習 Ôn tập</a><a href="#/history">史 Lịch sử các kiếp</a></div>
+      <div class="home-links"><a href="#/sects">門 Môn phái</a><a href="#/review">習 Ôn tập</a><a href="#/history">史 Lịch sử các kiếp</a></div>
       ${s.total_runs ? `<div class="home-stats"><span>${s.total_runs} kiếp đã qua</span><span>Cao nhất: ${esc(app.codex.realms[s.best_realm].name)}</span><span>Thọ lâu nhất: ${fmt(s.longest_age)} tuổi</span><span>${app.me.achievements.length}/${app.codex.achievements.length} thành tựu</span></div>` : ""}
     </section>
     <section class="pillars">
@@ -1304,6 +1305,7 @@ async function renderDuel() {
       <div class="duel-stats"><span><b>${s.wins}</b> thắng</span><span><b>${s.losses}</b> thua</span><span><b>${s.draws}</b> hòa</span>${me.rank ? `<span>Hạng <b>${me.rank}</b></span>` : ""}</div>
     </div>
     ${me.guest ? `<div class="nudge">Ngươi đang là khách: được luận đạo thử nhưng <b>chưa tính Đạo vị</b>. <a href="#" id="duelSave">Lưu tiến trình</a> để lên bảng xếp hạng.</div>` : ""}
+    ${me.guest ? "" : `<p class="muted small">Mỗi trận thắng xếp hạng: <b>+3 điểm tỷ võ</b> cho môn phái của nhân vật đang tu hành (hòa +1). <a href="#/sects">Xem môn phái ›</a></p>`}
     <button class="btn big" id="findMatch" style="margin:20px 0 8px">Tìm đối thủ</button>
     <div class="friend-box">
       <h3>Đấu với bạn</h3>
@@ -1415,6 +1417,7 @@ const setPhase = (t) => {
 
 function fighterHtml(f, side) {
   return `<div class="avatar">${esc(f.name[0])}</div><div class="fname">${esc(f.name)}${f.bot ? ' <span class="muted small">(tàn ảnh)</span>' : ""}</div>
+    ${f.title ? `<div class="chief-tag line">掌 ${esc(f.title)}</div>` : ""}
     <div class="muted small line">${f.guest ? "Khách" : `${fmt(f.rating)}<span class="rk"> · ${esc(rankTitle(f.rating))}</span>`}</div>
     <div class="muted small line realm-line">${esc(app.codex.realms[f.realm]?.name ?? "")}</div>
     ${side === "opp" ? `<div class="opp-status" id="oppStatus"></div>` : ""}`;
@@ -1801,6 +1804,8 @@ async function renderWorld(selected) {
               <div class="sub">${esc(sectDef(s.id)?.desc ?? "")}</div>
               <div class="power"><i style="width:${(Number(s.power) / maxPower) * 100}%"></i></div>
               <div class="sub">${fmt(s.members)} đệ tử · ${fmt(s.elders)} trưởng lão · đỉnh cao ${esc(realmName(s.topRealm))}</div>
+              ${s.chief ? `<div class="sub chief">掌 Chưởng môn: <b>${esc(s.chief.name)}</b> — ${esc(realmName(s.chief.realm))}</div>` : ""}
+              <div class="sub"><a href="#/sects/${s.id}">Chính sự môn phái ›</a></div>
               <div class="sub leader">${s.leader ? `Mạnh nhất: <b>${esc(s.leader.name)}</b> — ${esc(realmName(s.leader.realm))}, ${fmt(s.leader.age)} tuổi${s.leader.rank === "elder" ? " · trưởng lão" : ""}` : "Chưa có đệ tử nào."}</div></div>
             <div class="sect-power"><b>${fmt(s.power)}</b><small>thế lực</small></div>
           </div>`,
@@ -1901,11 +1906,12 @@ async function renderAdmin(tab = "report", days = Number(store("tt-admin-days") 
     return;
   }
   $view.innerHTML = `<div class="page admin"><h1>Quản trị</h1>
-    <div class="tabs"><button data-t="report" class="${tab === "report" ? "on" : ""}">Báo cáo</button><button data-t="settings" class="${tab === "settings" ? "on" : ""}">Cấu hình chỉ số</button><button data-t="questions" class="${tab === "questions" ? "on" : ""}">Câu hỏi</button></div>
+    <div class="tabs"><button data-t="report" class="${tab === "report" ? "on" : ""}">Báo cáo</button><button data-t="settings" class="${tab === "settings" ? "on" : ""}">Cấu hình chỉ số</button><button data-t="questions" class="${tab === "questions" ? "on" : ""}">Câu hỏi</button><button data-t="sects" class="${tab === "sects" ? "on" : ""}">Môn phái</button></div>
     <div id="adminBody"><div class="empty">Đang tải…</div></div></div>`;
   $view.querySelectorAll(".tabs button").forEach((b) => (b.onclick = () => renderAdmin(b.dataset.t, days)));
   if (tab === "settings") return renderAdminSettings();
   if (tab === "questions") return renderAdminQuestions();
+  if (tab === "sects") return renderAdminSects();
 
   const r = await api(`/api/admin/report?days=${days}`);
   const sumDuel = r.series.duelsRanked.map((p, i) => ({ d: p.d, n: p.n + r.series.duelsBot[i].n + r.series.duelsFriendly[i].n }));
@@ -2305,3 +2311,173 @@ async function startReview(path) {
 if (location.hostname === "localhost") window.__tt = { openBreakthrough, chargeScene, resultScene, app };
 
 boot().catch((e) => ($view.innerHTML = `<div class="empty">Không khởi động được: ${esc(e.message)}</div>`));
+
+// ---------------------------------------------------------------- Môn phái: thi đấu & bầu chưởng môn
+
+const PHASE = { contest: "Đại bỉ", vote: "Bầu chưởng môn", none: "" };
+function timeLeft(ts) {
+  const ms = Math.max(0, (ts ?? 0) - Date.now());
+  const h = Math.floor(ms / 3600_000), m = Math.floor((ms % 3600_000) / 60_000);
+  return h >= 24 ? `${Math.floor(h / 24)} ngày ${h % 24} giờ` : h ? `${h} giờ ${m} phút` : `${Math.max(1, m)} phút`;
+}
+const dmy = (ms) => new Date(ms).toLocaleDateString("vi-VN");
+const realmOf = (i) => app.codex.realms[i]?.name ?? "—";
+
+async function renderSects() {
+  const [list, current] = await Promise.all([api("/api/sects"), api("/api/game/runs/current").catch(() => null)]);
+  const c = app.codex;
+  const mySect = current?.sectId && current.sect !== "outcast" ? current.sectId : null;
+  const max = Math.max(1, ...list.map((x) => x.points));
+  $view.innerHTML = `<div class="page sects-page">
+    <h1>Môn phái</h1>
+    <p class="muted">Đệ tử thắng <b>luận đạo xếp hạng</b> được điểm tỷ võ cho phái (thắng +3, hòa +1). Khi ghế chưởng môn trống, phái mở <b>đại bỉ</b>: ba đệ tử nhiều điểm nhất thành ứng viên, rồi toàn phái <b>bỏ phiếu</b>. Danh vị gắn với nhân vật của kiếp này — nhân vật tọa hóa, ghế chưởng môn cũng bỏ trống.</p>
+    ${mySect ? `<a class="nudge sect-mine" href="#/sects/${mySect}">${esc(byId(c.sects, mySect)?.glyph ?? "")} Nhân vật <b>${esc(current.profile.name)}</b> là đệ tử <b>${esc(byId(c.sects, mySect)?.name ?? "")}</b> — vào chính sự môn phái ›</a>`
+      : `<div class="nudge">Nhân vật hiện tại chưa bái nhập môn phái nào. Gia nhập tông môn trong lúc <a href="#/play">tu tiên</a> để thi đấu và bầu chưởng môn.</div>`}
+    <div class="list sect-board">${list
+      .map((s, i) => {
+        const d = byId(c.sects, s.id);
+        return `<a class="item link" href="#/sects/${s.id}">
+          <div class="no ${i < 3 && s.points ? "top" : ""}">${i + 1}</div>
+          <span class="sglyph">${esc(d?.glyph ?? "")}</span>
+          <div class="main"><div class="title">${esc(d?.name ?? s.id)}${s.id === mySect ? ' <span class="crown">phái của ngươi</span>' : ""}</div>
+            <div class="sub">${esc(byId(c.worlds, d?.world)?.name ?? "")} · ${fmt(s.disciples)} đệ tử tại thế</div>
+            <div class="sub">${s.chief ? `掌 <b>${esc(s.chief.name)}</b> — ${esc(realmOf(s.chief.realm))}` : `<span class="phase-tag ${s.phase}">${PHASE[s.phase] || "Ghế trống"}</span> còn ${timeLeft(s.phaseEnds)}`}</div>
+            <div class="power"><i style="width:${(s.points / max) * 100}%"></i></div></div>
+          <div class="sect-power"><b>${fmt(s.points)}</b><small>điểm tỷ võ</small></div></a>`;
+      })
+      .join("")}</div>
+  </div>`;
+}
+
+async function renderSect(id) {
+  const s = await api(`/api/sects/${id}`);
+  const c = app.codex;
+  const d = byId(c.sects, id);
+  const me = s.me;
+  const totalVotes = s.candidates.reduce((a, x) => a + x.votes, 0) || 1;
+  const myStatus = !me
+    ? ""
+    : me.guest
+      ? `<div class="nudge">Khách chỉ xem được. <a href="#" id="sectSave">Lưu tiến trình</a> để thi đấu tính điểm, ứng cử và bỏ phiếu.</div>`
+      : me.disciple
+        ? `<div class="nudge">Nhân vật <b>${esc(me.character)}</b> là đệ tử phái này · điểm tỷ võ: <b>${fmt(me.points)}</b>.</div>`
+        : `<div class="nudge">${me.character ? `Nhân vật <b>${esc(me.character)}</b> không thuộc phái này` : "Ngươi chưa có nhân vật đang tu hành"} — chỉ đệ tử tại thế mới được bỏ phiếu.</div>`;
+
+  let stage = "";
+  if (s.chief) {
+    stage = `<section class="chief-card">
+      <div class="chief-seal">掌</div>
+      <div><div class="muted small">CHƯỞNG MÔN ĐƯƠNG NHIỆM</div><h2>${esc(s.chief.name)}</h2>
+        <div class="muted small">${esc(realmOf(s.chief.realm))} · tại vị từ ${dmy(s.chief.since)}</div>
+        ${s.motto ? `<blockquote class="motto">“${esc(s.motto)}”</blockquote>` : s.chief.isMe ? "" : `<div class="muted small">Chưa ban lời hiệu triệu.</div>`}
+        ${s.chief.isMe ? `<form id="mottoForm" class="motto-form"><input id="motto" maxlength="120" placeholder="Lời hiệu triệu gửi toàn phái (tối đa 120 ký tự)" value="${esc(s.motto ?? "")}"/><button class="btn small">Ban lệnh</button></form>
+          <p class="muted small">Giữ mạng nhân vật này để giữ ghế: tọa hóa, luân hồi sớm hoặc bế quan quá lâu đều mất chức.</p>` : ""}
+      </div></section>`;
+  } else if (s.phase === "contest") {
+    stage = `<section class="phase-card"><div class="phase-tag contest">Đại bỉ</div>
+      <h2>Ghế chưởng môn đang trống</h2>
+      <p>Đại bỉ kết thúc sau <b>${timeLeft(s.phaseEnds)}</b>. Ba đệ tử nhiều điểm tỷ võ nhất sẽ thành ứng viên. Thắng luận đạo xếp hạng để lấy điểm.</p>
+      <a class="btn" href="#/duel">Vào luận đạo</a></section>`;
+  } else if (s.phase === "vote") {
+    stage = `<section class="phase-card"><div class="phase-tag vote">Bầu chưởng môn</div>
+      <h2>Toàn phái bỏ phiếu</h2>
+      <p class="muted">Kiểm phiếu sau <b>${timeLeft(s.phaseEnds)}</b>. Mỗi đệ tử một phiếu, được đổi phiếu trước khi kết thúc. Hòa phiếu thì xét điểm tỷ võ rồi cảnh giới; ứng viên tọa hóa giữa chừng bị loại.</p>
+      <div class="cands">${s.candidates
+        .map(
+          (x) => `<div class="cand ${me?.vote === x.run ? "mine" : ""} ${x.alive ? "" : "dead"}">
+            <div class="title">${esc(x.name)}${x.alive ? "" : ' <span class="muted small">(đã tọa hóa)</span>'}</div>
+            <div class="sub">${esc(realmOf(x.realm))} · ${fmt(x.points)} điểm</div>
+            <div class="power"><i style="width:${(x.votes / totalVotes) * 100}%"></i></div>
+            <div class="sub"><b>${fmt(x.votes)}</b> phiếu</div>
+            ${me?.canVote && x.alive ? `<button class="btn small ${me.vote === x.run ? "" : "ghost"}" data-vote="${x.run}">${me.vote === x.run ? "Đã bầu ✓" : "Bầu người này"}</button>` : ""}
+          </div>`,
+        )
+        .join("")}</div></section>`;
+  }
+
+  $view.innerHTML = `<div class="page sect-page">
+    <p><a href="#/sects" class="muted small">‹ Môn phái</a></p>
+    <div class="wd-head"><span class="wglyph big">${esc(d?.glyph ?? "")}</span><div><h1>${esc(d?.name ?? id)}</h1>
+      <div class="muted small">${esc(byId(c.worlds, d?.world)?.name ?? "")} · ${esc(d?.desc ?? "")} · ${fmt(s.disciples)} đệ tử tại thế</div></div></div>
+    ${myStatus}
+    ${stage}
+    <h3>Bảng tỷ võ</h3>
+    ${s.ranking.length
+      ? `<div class="list">${s.ranking
+          .map(
+            (r, i) => `<div class="item"><div class="no ${i < 3 ? "top" : ""}">${i + 1}</div>
+              <div class="main"><div class="title">${esc(r.name)}${s.chief?.run === r.run ? ' <span class="crown">chưởng môn</span>' : r.elder ? ' <span class="muted small">trưởng lão</span>' : ""}</div>
+                <div class="sub">${esc(r.account)} · ${esc(realmOf(r.realm))} · ${fmt(r.age)} tuổi · ${r.wins} thắng${r.draws ? ` · ${r.draws} hòa` : ""}</div></div>
+              <div class="sect-power"><b>${fmt(r.points)}</b><small>điểm</small></div></div>`,
+          )
+          .join("")}</div>`
+      : `<div class="empty">Chưa đệ tử nào tỷ võ. Thắng một trận luận đạo xếp hạng để ghi danh.</div>`}
+    <h3>Các đời chưởng môn</h3>
+    ${s.history.length
+      ? `<div class="list">${s.history
+          .map(
+            (h) => `<div class="item"><div class="no">掌</div><div class="main"><div class="title">${esc(h.name)}</div>
+              <div class="sub">${esc(realmOf(h.realm))} · ${fmt(h.votes)} phiếu · ${dmy(h.from_at)} → ${h.to_at ? `${dmy(h.to_at)} (${esc(h.end_reason ?? "")})` : "nay"}</div></div></div>`,
+          )
+          .join("")}</div>`
+      : `<div class="empty">Phái chưa từng có chưởng môn do đệ tử bầu.</div>`}
+  </div>`;
+
+  document.getElementById("sectSave")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    openAccount();
+  });
+  $view.querySelectorAll("[data-vote]").forEach(
+    (b) =>
+      (b.onclick = async () => {
+        b.disabled = true;
+        try {
+          await api(`/api/sects/${id}/vote`, { method: "POST", body: { run: b.dataset.vote } });
+          toast("Đã bỏ phiếu.");
+          renderSect(id);
+        } catch (e) {
+          toast(e.message);
+          b.disabled = false;
+        }
+      }),
+  );
+  document.getElementById("mottoForm")?.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    try {
+      await api(`/api/sects/${id}/motto`, { method: "PUT", body: { motto: document.getElementById("motto").value } });
+      toast("Lời hiệu triệu đã ban xuống toàn phái.");
+      renderSect(id);
+    } catch (err) {
+      toast(err.message);
+    }
+  });
+}
+
+async function renderAdminSects() {
+  const list = await api("/api/sects");
+  const body = document.getElementById("adminBody");
+  const c = app.codex;
+  body.innerHTML = `<p class="muted small">Chu kỳ tự chạy: ghế trống → đại bỉ → bỏ phiếu → chưởng môn. Thời gian mỗi giai đoạn chỉnh ở tab Cấu hình chỉ số.</p>
+    <table class="table"><tr><th>Môn phái</th><th>Điểm</th><th>Đệ tử</th><th>Chưởng môn / giai đoạn</th><th></th></tr>${list
+      .map(
+        (s) => `<tr><td>${esc(byId(c.sects, s.id)?.name ?? s.id)}</td><td>${fmt(s.points)}</td><td>${fmt(s.disciples)}</td>
+          <td>${s.chief ? `${esc(s.chief.name)}${s.motto ? `<div class="muted small">“${esc(s.motto)}”</div>` : ""}` : `${PHASE[s.phase] || "—"} · còn ${timeLeft(s.phaseEnds)}`}</td>
+          <td class="actions">${s.chief ? `${s.motto ? `<button class="btn small ghost" data-a="motto" data-id="${s.id}">Gỡ hiệu triệu</button>` : ""}<button class="btn small ghost" data-a="depose" data-id="${s.id}">Bãi nhiệm</button>` : `<button class="btn small ghost" data-a="advance" data-id="${s.id}">Chuyển vòng ngay</button>`}</td></tr>`,
+      )
+      .join("")}</table>`;
+  body.querySelectorAll("[data-a]").forEach(
+    (b) =>
+      (b.onclick = async () => {
+        const { a, id } = b.dataset;
+        if (a === "depose" && !confirm("Bãi nhiệm chưởng môn phái này?")) return;
+        try {
+          if (a === "motto") await api(`/api/admin/sects/${id}/motto`, { method: "DELETE" });
+          else await api(`/api/admin/sects/${id}/${a}`, { method: "POST" });
+          toast("Đã cập nhật.");
+          renderAdminSects();
+        } catch (e) {
+          toast(e.message);
+        }
+      }),
+  );
+}

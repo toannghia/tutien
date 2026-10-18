@@ -570,8 +570,9 @@ export function createWorldMap(host, { data, codex, esc, fmt, realmName, onSelec
       <div class="muted small">Môn phái · ${esc(worldName(region))}</div><h3>${esc(def.glyph)} ${esc(def.name)}</h3>
       <div class="muted small">${esc(def.desc)}</div>
       <div class="wm-kv"><span>Thế lực</span><b>${fmt(s?.power ?? 0)}</b><span>Đệ tử</span><b>${fmt(s?.members ?? 0)}</b><span>Trưởng lão</span><b>${fmt(s?.elders ?? 0)}</b><span>Đỉnh cao</span><b>${esc(realmName(s?.topRealm))}</b></div>
+      ${s?.chief ? `<div class="small">掌 Chưởng môn: <b>${esc(s.chief.name)}</b> — ${esc(realmName(s.chief.realm))}</div>${s.chief.motto ? `<div class="small muted">“${esc(s.chief.motto)}”</div>` : ""}` : `<div class="small muted">Ghế chưởng môn đang trống.</div>`}
       <div class="small">${s?.leader ? `Mạnh nhất: <b>${esc(s.leader.name)}</b> — ${esc(realmName(s.leader.realm))}, ${fmt(s.leader.age)} tuổi` : "Chưa có đệ tử nào."}</div>
-      <button class="btn small wm-more">Xem cả giới ↓</button>`;
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><a class="btn small" href="#/sects/${sid}">Chính sự môn phái</a><button class="btn small ghost wm-more">Xem cả giới ↓</button></div>`;
     card.querySelector(".wm-x").onclick = () => (card.hidden = true);
     card.querySelector(".wm-more").onclick = () => onSelect(region, true);
   }
