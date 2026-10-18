@@ -55,11 +55,11 @@ export const RELATION_EVENTS = [
     weight: 4, cond: { sect: ["member", "elder"] },
     choices: [
       c("expose", "Tố giác với chưởng môn", "Lập công lớn; bị trả thù", [
-        o("rewarded", 55, "Âm mưu bị dập tắt. Chưởng môn ban cho ngươi bảo vật trấn tông.", { resources: 80, luck: 3 }),
-        o("revenge", 35, "Kẻ phản đồ trốn thoát, sau đó phục kích ngươi để trả thù.", { health: -45, resources: 30 }),
-        o("framed", 10, "Kẻ phản đồ ra tay trước, vu cho ngươi là gian tế. Ngươi bị trục xuất khỏi tông môn.", { sect: "outcast", health: -20 }),
+        o("rewarded", 55, "Âm mưu bị dập tắt. Chưởng môn ban cho ngươi bảo vật trấn tông.", { resources: 80, luck: 3, virtue: 6 }),
+        o("revenge", 35, "Kẻ phản đồ trốn thoát, sau đó phục kích ngươi để trả thù.", { health: -45, resources: 30, virtue: 6 }),
+        o("framed", 10, "Kẻ phản đồ ra tay trước, vu cho ngươi là gian tế. Ngươi bị trục xuất khỏi tông môn.", { sect: "outcast", health: -20, virtue: 6 }),
       ]),
-      c("silent", "Im lặng rời tông môn", "Bảo toàn tính mạng", [o("leave", 1, "Ngươi lấy cớ du lịch rời sơn môn. Mấy năm sau, tông môn bị ma đạo diệt.", { sect: "outcast", luck: -2 })]),
+      c("silent", "Im lặng rời tông môn", "Bảo toàn tính mạng", [o("leave", 1, "Ngươi lấy cớ du lịch rời sơn môn. Mấy năm sau, tông môn bị ma đạo diệt.", { sect: "outcast", luck: -2, sin: 4 })]),
     ],
   }),
   ev("sect_lecture", "Giảng đường tông môn", "Trưởng lão truyền công mở giảng đường. Cuối buổi, người gọi từng đệ tử lên hỏi bài — ai đáp trôi chảy sẽ được ban thưởng.", CULTIVATOR, {
@@ -94,13 +94,13 @@ export const RELATION_EVENTS = [
     weight: 5, cooldown: 30, cond: { partner: ["partner"] },
     choices: [
       c("rescue", "Lập tức lên đường cứu", "Có thể mất mạng", [
-        o("saved", 55, "Ngươi phá vòng vây, đưa được đạo lữ trở về. Tình nghĩa hai người càng thêm sâu nặng.", { health: -30, luck: 4 }),
-        o("lost", 30, "Ngươi đến muộn một bước. Chỉ còn lại tàn hồn tiêu tán trong gió.", { partner: "widowed", health: -20, comprehension: 4 }),
-        o("both", 15, "Hai người cùng chết trong ma vực, tay vẫn nắm chặt tay.", { death: true }, "Cùng đạo lữ chết trong ma vực"),
+        o("saved", 55, "Ngươi phá vòng vây, đưa được đạo lữ trở về. Tình nghĩa hai người càng thêm sâu nặng.", { health: -30, luck: 4, virtue: 4 }),
+        o("lost", 30, "Ngươi đến muộn một bước. Chỉ còn lại tàn hồn tiêu tán trong gió.", { partner: "widowed", health: -20, comprehension: 4, virtue: 4 }),
+        o("both", 15, "Hai người cùng chết trong ma vực, tay vẫn nắm chặt tay.", { death: true, virtue: 4 }, "Cùng đạo lữ chết trong ma vực"),
       ]),
       c("wait", "Gửi lời cầu viện rồi chờ", "An toàn cho mình", [
-        o("ok", 40, "Đạo lữ tự mình thoát ra, nhưng giữa hai người đã có một vết rạn.", { luck: -2 }),
-        o("dead", 60, "Viện binh không kịp đến. Đạo lữ của ngươi vĩnh viễn nằm lại nơi ấy.", { partner: "widowed", comprehension: 3, luck: -3 }),
+        o("ok", 40, "Đạo lữ tự mình thoát ra, nhưng giữa hai người đã có một vết rạn.", { luck: -2, sin: 2 }),
+        o("dead", 60, "Viện binh không kịp đến. Đạo lữ của ngươi vĩnh viễn nằm lại nơi ấy.", { partner: "widowed", comprehension: 3, luck: -3, sin: 2 }),
       ]),
     ],
   }),

@@ -168,4 +168,11 @@ export const ACHIEVEMENTS: { id: string; name: string; desc: string; test: (c: A
   { id: "perfect", name: "Khảo hạch toàn đúng", desc: "Đạt điểm tuyệt đối trong một kỳ khảo hạch nhiều câu.", test: (c) => c.flags.includes("perfect_trial") },
   { id: "heart", name: "Đạo tâm kiên định", desc: "Vượt qua 5 lần vấn tâm trước bình cảnh trong một kiếp.", test: (c) => c.flags.includes("heart5") },
   { id: "tribulation", name: "Thân qua lôi kiếp", desc: "Sống sót qua một lần thiên kiếp thất bại.", test: (c) => c.flags.includes("survived_tribulation") },
+  // Nhân quả luân hồi
+  { id: "saint", name: "Đại thiện nhân", desc: "Tích 40 thiện nghiệp trong một kiếp.", test: (c) => c.flags.includes("great_virtue") },
+  { id: "demon", name: "Ma đầu một cõi", desc: "Gánh 40 ác nghiệp trong một kiếp.", test: (c) => c.flags.includes("great_sin") },
+  { id: "heir", name: "Kế thừa tiền kiếp", desc: "Mở động phủ do chính mình kiếp trước để lại.", test: (c) => c.flags.includes("legacy_claimed") },
+  { id: "obsession", name: "Chấp niệm tiêu tan", desc: "Vượt qua cảnh giới mà kiếp trước gục ngã.", test: (c) => c.flags.includes("obsession_resolved") },
+  { id: "rebond", name: "Tiền duyên tái tục", desc: "Nối lại duyên đạo lữ từ kiếp trước.", test: (c) => c.flags.includes("bond_renewed") },
+  { id: "redeem", name: "Oán thù hóa giải", desc: "Hóa giải oan gia từ kiếp trước mà không đổ máu.", test: (c) => c.flags.includes("feud_resolved") },
 ];

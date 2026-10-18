@@ -41,6 +41,15 @@ Game mô phỏng một đời tu tiên. Chạy trên Cloudflare Workers + D1, d�
 - **Đạo vị (Elo, K = 32)** chỉ áp dụng cho tài khoản đã đăng ký. Khách được đấu thử nhưng không được tính điểm. Bậc danh hiệu: Sơ học → Nhập thất → Chân truyền → Tông sư → Đạo tôn.
 - **Deploy:** Durable Objects được tạo tự động khi `wrangler deploy` (migration `v1` trong `wrangler.jsonc`). Chạy thêm `npm run db:migrate:remote` để tạo bảng `ratings`, `duels`.
 
+## Nhân quả luân hồi
+
+Các kiếp nối với nhau bằng nhân quả (`src/karma.ts` tính lúc tạo kiếp rồi chụp vào `profile.karma`, nên phát lại vẫn tất định; kiếp tạo trước tính năng này không có `karma` và chạy y như cũ):
+- **Nghiệp lực thiện/ác:** lựa chọn thiện (cứu người, trừ yêu, bố thí, tố giác phản đồ…) hay ác (đoạt bảo, huyết luyện tà pháp, vu cáo đồng môn…) cộng thiện/ác nghiệp. Trong kiếp: thiện ≥22 có *công đức kim quang*, ≥20 giảm 25% tỉ lệ chết khi độ kiếp; ác ≥18 sinh *tâm ma*, ≥20 thiên lôi hung hơn. Sang kiếp sau (mỗi kiếp phai một nửa): dư thiện → *phúc báo* (khí vận, đột phá), dư ác → *nghiệp chướng*. Luân hồi sớm không xóa ác nghiệp, cũng không được tính thiện nghiệp.
+- **Túc tuệ:** cảnh giới các kiếp gần để lại ký ức (tối đa 60): ngộ tính +, thức tỉnh sớm hơn, và *đường quen* +5% khi đột phá cảnh giới từng đạt.
+- **Động phủ:** kiếp đạt Kim Đan trở lên để lại động phủ (một nửa linh tài). Kiếp sau gặp lại có thể kế thừa (linh tài, tu vi, pháp bảo +3% đột phá) hoặc phong ấn lại cho kiếp sau nữa.
+- **Chấp niệm / tiền duyên / oan gia:** gục ngã ở cảnh giới nào thì kiếp sau mang chấp niệm (+5% khi thử lại, vượt qua thì thưởng thọ nguyên, ngộ tính, khí vận); có đạo lữ thì kiếp sau gặp lại *cố nhân*; ác nghiệp ≥25 thì *oan gia* tìm đến đòi nợ.
+- **Sổ Sinh Tử** (`/#/history`): chuỗi các kiếp với nghiệp lực, những gì mỗi kiếp nhận vào và để lại, cùng nhân quả đang chờ kiếp sau. Cân bằng: `npx tsx scripts/karma-balance.ts`.
+
 ## Chân dung theo cảnh giới
 
 `public/avatar.js` vẽ chân dung SVG bằng code (không dùng ảnh) cho 14 cảnh giới, nam/nữ khác kiểu tóc. Mỗi cảnh giới đổi phục sức, mũ/miện, ấn ký giữa trán (từ Hóa Thần), dị tượng phía sau (linh khí, kim đan, nguyên anh, thiên lôi, hư không, âm dương, kim liên, phù văn, đế miện…) và khung viền. Chân dung đổi ngay khi lên cảnh giới (có hiệu ứng lóe sáng), hiện ở bảng nhân vật, màn đột phá, kết cục, lịch sử, luận đạo và ảnh số mệnh.

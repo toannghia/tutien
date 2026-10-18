@@ -35,6 +35,7 @@ export async function mergeGuestInto(db: D1Database, guestId: string, targetId: 
 
   stmts.push(
     db.prepare("UPDATE runs SET user_id = ? WHERE user_id = ?").bind(targetId, guestId),
+    db.prepare("UPDATE legacies SET user_id = ? WHERE user_id = ?").bind(targetId, guestId),
     // Đánh lại số kiếp theo thời gian chơi
     db.prepare(
       `UPDATE runs SET number = (

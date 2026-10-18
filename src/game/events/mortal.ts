@@ -10,12 +10,12 @@ export const MORTAL_EVENTS = [
     minAge: 6, maxAge: 15, weight: 6,
     choices: [
       c("jump", "Nhảy xuống cứu", "Có thể được báo đáp; cũng có thể chết đuối", [
-        o("saved", 60, "Ngươi kéo được đứa trẻ vào bờ. Gia đình nó là nhà khá giả, mang lễ vật đến tạ ơn.", { resources: 20, luck: 3 }),
-        o("struggle", 32, "Nước cuốn cả hai đi một đoạn dài. Ngươi cứu được người nhưng ốm nặng suốt một tháng.", { health: -30, luck: 4 }),
-        o("drown", 8, "Dòng nước quá xiết. Người ta tìm thấy hai đứa trẻ ở hạ lưu vào sáng hôm sau.", { death: true }, "Chết đuối khi cứu người"),
+        o("saved", 60, "Ngươi kéo được đứa trẻ vào bờ. Gia đình nó là nhà khá giả, mang lễ vật đến tạ ơn.", { resources: 20, luck: 3, virtue: 5 }),
+        o("struggle", 32, "Nước cuốn cả hai đi một đoạn dài. Ngươi cứu được người nhưng ốm nặng suốt một tháng.", { health: -30, luck: 4, virtue: 5 }),
+        o("drown", 8, "Dòng nước quá xiết. Người ta tìm thấy hai đứa trẻ ở hạ lưu vào sáng hôm sau.", { death: true, virtue: 5 }, "Chết đuối khi cứu người"),
       ]),
       c("shout", "Chạy đi gọi người lớn", "An toàn", [
-        o("helped", 70, "Người lớn chạy đến kịp lúc. Đứa trẻ được cứu, ai cũng khen ngươi nhanh trí.", { luck: 1 }),
+        o("helped", 70, "Người lớn chạy đến kịp lúc. Đứa trẻ được cứu, ai cũng khen ngươi nhanh trí.", { luck: 1, virtue: 2 }),
         o("late", 30, "Khi người lớn đến nơi thì đã muộn. Hình ảnh ấy theo ngươi rất nhiều năm.", { luck: -2 }),
       ]),
     ],
@@ -24,9 +24,9 @@ export const MORTAL_EVENTS = [
     minAge: 5, maxAge: 15, weight: 5,
     choices: [
       c("give", "Mời lão vào nhà ăn bữa cơm", "Lòng tốt", [
-        o("blessing", 45, "Lão ăn xong, xoa đầu ngươi rồi cười: \"Đứa nhỏ này có duyên.\" Ngươi thấy người nhẹ hẳn đi.", { luck: 6, health: 10 }),
-        o("token", 25, "Lúc đi, lão để lại một khối ngọc bội ấm áp. Về sau ngươi mới biết đó là linh ngọc.", { resources: 30, luck: 2 }),
-        o("nothing", 30, "Lão ăn xong rồi lặng lẽ rời đi. Có lẽ chỉ là một lão nhân bình thường.", { luck: 1 }),
+        o("blessing", 45, "Lão ăn xong, xoa đầu ngươi rồi cười: \"Đứa nhỏ này có duyên.\" Ngươi thấy người nhẹ hẳn đi.", { luck: 6, health: 10, virtue: 3 }),
+        o("token", 25, "Lúc đi, lão để lại một khối ngọc bội ấm áp. Về sau ngươi mới biết đó là linh ngọc.", { resources: 30, luck: 2, virtue: 3 }),
+        o("nothing", 30, "Lão ăn xong rồi lặng lẽ rời đi. Có lẽ chỉ là một lão nhân bình thường.", { luck: 1, virtue: 3 }),
       ]),
       c("ignore", "Lắc đầu đi tiếp", "Không mất gì", [o("pass", 1, "Ngươi đi tiếp. Khi ngoảnh lại, lão nhân đã không còn ở đó.", {})]),
     ],
@@ -56,7 +56,7 @@ export const MORTAL_EVENTS = [
     minAge: 14, maxAge: 22, weight: 25, cond: { rootless: true },
     choices: [
       c("smith", "Theo nghề rèn", "Vất vả, sức khỏe tốt", [o("smith", 1, "Tiếng búa sắt vang suốt những năm tuổi trẻ. Cánh tay ngươi rắn chắc, đủ nuôi sống bản thân.", { health: 15, resources: 15 })]),
-      c("doctor", "Học làm thầy thuốc", "Hiểu biết, có lòng người", [o("doctor", 1, "Ngươi học bốc thuốc, xem mạch. Người trong vùng đều quý trọng ngươi.", { comprehension: 5, luck: 3, resources: 10 })]),
+      c("doctor", "Học làm thầy thuốc", "Hiểu biết, có lòng người", [o("doctor", 1, "Ngươi học bốc thuốc, xem mạch. Người trong vùng đều quý trọng ngươi.", { comprehension: 5, luck: 3, resources: 10, virtue: 4 })]),
       c("trader", "Theo đoàn buôn", "Nhiều tiền, nhiều rủi ro", [
         o("rich", 55, "Mấy chuyến buôn suôn sẻ, ngươi tích được một khoản không nhỏ.", { resources: 40 }),
         o("robbed", 40, "Đoàn buôn gặp cướp giữa đường, ngươi trắng tay trở về.", { resources: -10, health: -20 }),

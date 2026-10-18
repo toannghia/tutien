@@ -7,7 +7,9 @@ import { avatarSvg } from "./avatar.js";
 const $view = document.getElementById("view");
 const HUES = [30, 140, 155, 45, 210, 270, 230, 190, 0, 50, 40, 280, 300, 15];
 const SPEEDS = { 1: 1100, 2: 550, 4: 220 };
-const STAT_LABEL = { cultivation: "tu vi", health: "thể trạng", resources: "linh tài", luck: "khí vận", comprehension: "ngộ tính", lifespan: "thọ nguyên" };
+const STAT_LABEL = { cultivation: "tu vi", health: "thể trạng", resources: "linh tài", luck: "khí vận", comprehension: "ngộ tính", lifespan: "thọ nguyên", virtue: "thiện nghiệp", sin: "ác nghiệp" };
+// Tăng ác nghiệp là điều xấu dù số dương
+const deltaCls = (k, v) => (k === "sin" ? (v > 0 ? "down sin" : "up") : k === "virtue" ? (v > 0 ? "up virtue" : "down") : v > 0 ? "up" : "down");
 const ERRORS = {
   USER_ALREADY_EXISTS: "Email này đã có tài khoản — hãy chọn Đăng nhập.",
   USER_ALREADY_EXISTS_USE_ANOTHER_EMAIL: "Email này đã có tài khoản — hãy chọn Đăng nhập.",
@@ -146,7 +148,7 @@ async function renderHome() {
       <h1>Tu Tiên Lộ</h1>
       <p>Giữa vạn giới mênh mang, một sinh mệnh thức giấc. Phàm nhân hay tiên nhân — số mệnh nào đang đợi ngươi?</p>
       <a class="btn big" href="#/play">${current ? `Tiếp tục kiếp ${pad(current.number)}` : "Tu tiên"}</a>
-      <div class="home-links"><a href="#/sects">門 Môn phái</a><a href="#/history">史 Lịch sử các kiếp</a></div>
+      <div class="home-links"><a href="#/sects">門 Môn phái</a><a href="#/history">史 Sổ Sinh Tử</a></div>
       ${s.total_runs ? `<div class="home-stats"><span>${s.total_runs} kiếp đã qua</span><span>Cao nhất: ${esc(app.codex.realms[s.best_realm].name)}</span><span>Thọ lâu nhất: ${fmt(s.longest_age)} tuổi</span><span>${app.me.achievements.length}/${app.codex.achievements.length} thành tựu</span></div>` : ""}
     </section>
     <section class="pillars">
@@ -201,6 +203,25 @@ async function startLife() {
   }
 }
 
+// Nhân quả tiền kiếp hiện lúc đầu thai: [chữ, nhãn, giá trị, lớp]
+function karmaRows(k) {
+  if (!k) return [];
+  const net = k.v - k.s;
+  const blessing = net >= 8 ? Math.min(10, Math.round(net / 3)) : 0;
+  const burden = net <= -8 ? Math.min(10, Math.round(-net / 3)) : 0;
+  const realm = (i) => (i >= app.codex.realms.length ? "Chứng đạo" : app.codex.realms[i]?.name ?? "");
+  const rows = [];
+  if (k.prev) rows.push(["前", "Tiền kiếp", `${k.prev.name} · ${realm(k.prev.realm)}`, ""]);
+  if (blessing) rows.push(["福", "Phúc báo", `Khí vận +${blessing}`, "rare"]);
+  if (burden) rows.push(["業", "Nghiệp chướng", `Khí vận −${burden}`, "bad"]);
+  if (k.insight >= 5) rows.push(["慧", "Túc tuệ", `${k.insight} · ngộ tính +${Math.round(k.insight / 10)}`, k.insight >= 30 ? "rare" : ""]);
+  if (k.obsession) rows.push(["執", "Chấp niệm", `Vượt qua ${realm(k.obsession.realm)}`, ""]);
+  if (k.bond) rows.push(["緣", "Tiền duyên", k.bond.name, "rare"]);
+  if (k.feud) rows.push(["冤", "Oan gia", k.feud.name, "bad"]);
+  if (k.legacy) rows.push(["府", "Động phủ", `Di sản của ${k.legacy.name}`, "rare"]);
+  return rows;
+}
+
 async function reveal(run) {
   const p = run.profile;
   const c = app.codex;
@@ -215,6 +236,7 @@ async function reveal(run) {
     ["才", "Tư chất", `${p.aptitude} / 100`, p.aptitude >= 80 ? "rare" : ""],
     ["悟", "Ngộ tính", `${p.comprehension} / 100`, p.comprehension >= 80 ? "rare" : ""],
     ["運", "Khí vận", `${p.luck} / 100`, p.luck >= 80 ? "rare" : ""],
+    ...karmaRows(p.karma),
   ];
   $view.innerHTML = `<div class="reveal">
     <div class="seal-big">命</div><div class="muted small">THIÊN MỆNH QUYỂN · KIẾP ${pad(run.number)}</div>
@@ -345,7 +367,7 @@ function appendFact(f, animate = true) {
   if (!animate) el.style.animation = "none";
   const deltas = Object.entries(f.delta ?? {})
     .filter(([, v]) => v)
-    .map(([k, v]) => `<span class="delta ${v > 0 ? "up" : "down"}">${v > 0 ? "+" : ""}${fmt(v)} ${STAT_LABEL[k]}</span>`)
+    .map(([k, v]) => `<span class="delta ${deltaCls(k, v)}">${v > 0 ? "+" : ""}${fmt(v)} ${STAT_LABEL[k]}</span>`)
     .join("");
   if (f.quiz) {
     const r = f.quiz;
@@ -384,8 +406,8 @@ function updateSheet() {
   stripHtml(document.getElementById("strip"), run, realm);
 }
 
-const statOf = (run) => ({ health: run.health, lifespan: run.lifespan, progress: run.progress, resources: run.resources, luck: run.luck, comprehension: run.comprehension, sect: run.sect, sectId: run.sectId, partner: run.partner, path: run.path });
-const statFromFact = (t) => ({ health: t.h, lifespan: t.l, progress: t.p, resources: t.r, luck: t.lk, comprehension: t.c, sect: t.sc, sectId: t.si, partner: t.pt, path: t.pa });
+const statOf = (run) => ({ health: run.health, lifespan: run.lifespan, progress: run.progress, resources: run.resources, luck: run.luck, comprehension: run.comprehension, sect: run.sect, sectId: run.sectId, partner: run.partner, path: run.path, virtue: run.karma?.virtue, sin: run.karma?.sin });
+const statFromFact = (t) => ({ health: t.h, lifespan: t.l, progress: t.p, resources: t.r, luck: t.lk, comprehension: t.c, sect: t.sc, sectId: t.si, partner: t.pt, path: t.pa, virtue: t.kv, sin: t.ks });
 
 function sheetHtml(el, run, { realm, label, age, stat, shown = run.facts.length }) {
   const p = run.profile;
@@ -423,6 +445,7 @@ function sheetHtml(el, run, { realm, label, age, stat, shown = run.facts.length 
       ${quizzes.length ? `<div class="kv"><span class="k">Khảo hạch</span><span class="v">${quizOk}/${quizzes.length} đúng</span></div>` : ""}
       <div class="kv"><span class="k">Tông môn</span><span class="v">${sect}${st.sectId ? ` · ${esc(c.sects.find((x) => x.id === st.sectId)?.name ?? "")}` : ""}</span></div>
       <div class="kv"><span class="k">Đạo lữ</span><span class="v">${partner}</span></div>
+      ${p.karma ? `<div class="kv"><span class="k">Nghiệp lực</span><span class="v"><span class="good">Thiện ${fmt(st.virtue ?? 0)}</span> · <span class="bad">Ác ${fmt(st.sin ?? 0)}</span></span></div>` : ""}
     </div>
     <div class="group detail">
       ${meter("Tư chất", p.aptitude, 100)}
@@ -712,7 +735,7 @@ function resultScene(modal, fact) {
   const body = modal.querySelector("#btBody");
   const tags = [b.aided && "Linh tài hộ pháp", b.insight && "Vấn tâm"].filter(Boolean).map((t) => `<span class="ach">✦ ${t}</span>`).join("");
   const deltas = Object.entries(fact.delta ?? {})
-    .map(([k, v]) => `<span class="delta ${v > 0 ? "up" : "down"}">${v > 0 ? "+" : ""}${fmt(v)} ${STAT_LABEL[k]}</span>`)
+    .map(([k, v]) => `<span class="delta ${deltaCls(k, v)}">${v > 0 ? "+" : ""}${fmt(v)} ${STAT_LABEL[k]}</span>`)
     .join("");
   let html = "";
   if (b.result === "success" || b.result === "ascend") {
@@ -1020,30 +1043,66 @@ async function openShare(run) {
 // ---------------------------------------------------------------- Lịch sử
 
 async function renderHistory() {
-  const rows = await api("/api/game/runs");
-  const status = (r) => (r.status === "active" ? "Đang tu hành" : r.status === "abandoned" ? "Luân hồi sớm" : r.ending_reason ?? "");
-  $view.innerHTML = `<div class="page"><h1>Lịch sử luân hồi</h1><p class="muted">${rows.length} kiếp gần nhất. Bấm vào một kiếp để đọc lại.</p>
+  const { lives, next } = await api("/api/game/lives");
+  const c = app.codex;
+  const realm = (i) => (i >= c.realms.length ? "Chứng đạo" : c.realms[i]?.name ?? "");
+  const status = (r) => (r.status === "active" ? "Đang tu hành" : r.status === "abandoned" ? "Luân hồi sớm" : r.ending ?? "");
+  // Những gì một kiếp nhận vào từ kiếp trước
+  const gotChips = (k) => {
+    if (!k) return [];
+    const out = [];
+    if (k.blessing) out.push(["good", `福 Phúc báo +${k.blessing}`]);
+    if (k.burden) out.push(["bad", `業 Nghiệp chướng −${k.burden}`]);
+    if (k.insight >= 5) out.push(["", `慧 Túc tuệ ${k.insight}`]);
+    if (k.obsession) out.push(["", `執 Chấp niệm ${realm(k.obsession.realm)}`]);
+    if (k.bond) out.push(["good", `緣 Tiền duyên ${k.bond.name}`]);
+    if (k.feud) out.push(["bad", `冤 Oan gia ${k.feud.name}`]);
+    if (k.legacy) out.push(["good", `府 Động phủ ${k.legacy.name}${k.legacy.claimed ? " · đã kế thừa" : ""}`]);
+    return out;
+  };
+  const chips = (list) => list.map(([cls, t]) => `<span class="kchip ${cls}">${esc(t)}</span>`).join("");
+  const nextChips = gotChips(next);
+  const maxK = Math.max(10, ...lives.map((l) => Math.max(l.virtue, l.sin)));
+  $view.innerHTML = `<div class="page lives-page">
+    <h1>Sổ Sinh Tử</h1>
+    <p class="muted">Mỗi kiếp gieo nhân, kiếp sau gặt quả. Thiện nghiệp hóa phúc báo, ác nghiệp thành nghiệp chướng; cảnh giới đã tu để lại túc tuệ; nơi gục ngã thành chấp niệm; đạo lữ thành tiền duyên; tu đến Kim Đan để lại động phủ cho chính mình kiếp sau.</p>
+    <section class="karma-next">
+      <div class="muted small">NHÂN QUẢ ĐANG CHỜ KIẾP SAU</div>
+      ${nextChips.length ? `<div class="kchips">${chips(nextChips)}</div>` : `<div class="muted">Chưa có nhân quả nào — kiếp kế tiếp bắt đầu như tờ giấy trắng.</div>`}
+      <div class="karma-bal"><span>Thiện nghiệp tích lũy <b class="good">${fmt(next.v)}</b></span><span>Ác nghiệp tích lũy <b class="bad">${fmt(next.s)}</b></span><span class="muted small">mỗi kiếp phai một nửa</span></div>
+    </section>
     ${
-      rows.length
-        ? `<div class="list">${rows
-            .map(
-              (r) => `<div class="item link" data-id="${esc(r.id)}">
-                <div class="no">${pad(r.number)}</div>
-                <div class="main"><div class="title realm" style="--hue:${HUES[r.best_realm]}">${esc(app.codex.realms[r.best_realm].name)} · ${fmt(r.age)} tuổi</div>
-                  <div class="sub">${esc(byId(app.codex.worlds, r.world)?.name)} · ${esc(status(r))}</div></div>
-                <div class="muted">›</div></div>`,
-            )
-            .join("")}</div>`
+      lives.length
+        ? `<ol class="lives">${lives
+            .map((l) => {
+              const got = gotChips(l.inherited);
+              const left = [];
+              if (l.left) left.push(["good", `府 Để lại động phủ (${fmt(l.left.res)} linh tài)${l.left.claimed ? " · đã được kế thừa" : ""}`]);
+              return `<li class="life ${l.status}">
+                <a class="life-card" href="#/history/${esc(l.id)}">
+                  <span class="life-av ${l.status === "finished" && !l.ending?.startsWith("Chứng đạo") ? "faded" : ""}">${avatarSvg(l.realm, l.gender, { seed: l.seed, size: 56, animate: false })}</span>
+                  <div class="main">
+                    <div class="muted small">KIẾP ${pad(l.number)} · ${esc(byId(c.worlds, l.world)?.name ?? "")}</div>
+                    <div class="title">${esc(l.name)} <span class="realm" style="--hue:${HUES[l.realm]}">${esc(realm(l.realm))}</span></div>
+                    <div class="sub">${fmt(l.age)} tuổi · ${esc(status(l))}</div>
+                    ${l.virtue || l.sin ? `<div class="kbars"><span class="kb v" style="width:${(l.virtue / maxK) * 100}%"></span><span class="kb s" style="width:${(l.sin / maxK) * 100}%"></span><small>Thiện ${l.virtue} · Ác ${l.sin}</small></div>` : ""}
+                    ${got.length ? `<div class="kchips"><span class="muted small">Nhận:</span>${chips(got)}</div>` : ""}
+                    ${left.length ? `<div class="kchips"><span class="muted small">Để lại:</span>${chips(left)}</div>` : ""}
+                  </div>
+                  <span class="muted">›</span>
+                </a></li>`;
+            })
+            .join("")}</ol>`
         : `<div class="empty">Chưa có kiếp nào. <a href="#/play">Bắt đầu tu tiên</a></div>`
-    }</div>`;
-  $view.querySelectorAll(".item.link").forEach((el) => (el.onclick = () => (location.hash = `#/history/${el.dataset.id}`)));
+    }
+  </div>`;
 }
 
 async function renderHistoryDetail(id) {
   const run = await api(`/api/game/runs/${id}`);
   if (run.status === "active") return void (location.hash = "#/play");
   $view.innerHTML = `<div class="play"><aside class="sheet" id="sheet"></aside><section>
-    <p><a href="#/history" class="muted small">‹ Lịch sử</a></p>
+    <p><a href="#/history" class="muted small">‹ Sổ Sinh Tử</a></p>
     <div class="realm-strip" id="strip"></div><div class="timeline" id="timeline"></div></section></div>`;
   const saved = { run: app.run, shown: app.shown };
   app.run = run;

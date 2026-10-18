@@ -62,7 +62,30 @@ export type Profile = {
   qv?: number; // phiên bản ngân hàng câu hỏi lúc tạo kiếp (không có = ngân hàng trong code)
   review?: string[]; // id câu đến hạn ôn tập lúc tạo kiếp (ôn ngắt quãng), quá hạn lâu nhất trước
   sv?: number; // phiên bản danh sách môn phái lúc tạo kiếp (không có = 24 phái gốc)
+  karma?: Karma; // nhân quả thừa hưởng từ các kiếp trước (máy chủ tính lúc tạo kiếp); không có = kiếp cũ, tắt hệ nhân quả
 };
+
+// ---------------------------------------------------------------- Nhân quả luân hồi
+
+/** Những gì kiếp trước để lại cho kiếp này. Máy chủ tính một lần lúc tạo kiếp rồi chụp vào profile → phát lại tất định. */
+export type Karma = {
+  v: number; // thiện nghiệp thừa hưởng (đã suy giảm qua các kiếp)
+  s: number; // ác nghiệp thừa hưởng
+  insight: number; // túc tuệ 0..60: ký ức đạo pháp từ các kiếp đã tu
+  pastBest: number; // cảnh giới cao nhất trong các kiếp gần — "đường quen" dễ đi hơn
+  prev?: { name: string; number: number; realm: number; ending: string };
+  legacy?: { id: string; name: string; realm: number; res: number; world: string; ascended: boolean }; // động phủ kiếp trước để lại
+  obsession?: { realm: number; kind: "tribulation" | "breakthrough" | "lifespan"; name: string }; // chấp niệm: cảnh giới kiếp trước gục ngã
+  bond?: { name: string }; // tiền duyên: đạo lữ kiếp trước
+  feud?: { name: string }; // oan gia: nạn nhân của ác nghiệp kiếp trước
+};
+
+/** Phúc báo / nghiệp chướng (điểm) từ cán cân thiện – ác thừa hưởng. */
+export function karmaBalance(k?: Karma) {
+  if (!k) return { blessing: 0, burden: 0 };
+  const net = k.v - k.s;
+  return { blessing: net >= 8 ? Math.min(10, Math.round(net / 3)) : 0, burden: net <= -8 ? Math.min(10, Math.round(-net / 3)) : 0 };
+}
 
 export function createProfile(seed: number, pityCount: number, cfg?: GameConfig, pityLimit = PITY_LIMIT): Profile {
   const rng = createRng(seed);
@@ -110,7 +133,7 @@ export type Fact = {
   text: string;
   kind: FactKind;
   choice?: string;
-  delta?: Partial<Record<"cultivation" | "health" | "resources" | "luck" | "comprehension" | "lifespan", number>>;
+  delta?: Partial<Record<"cultivation" | "health" | "resources" | "luck" | "comprehension" | "lifespan" | "virtue" | "sin", number>>;
   // Chỉ số ngay sau mốc này — để bảng nhân vật hiện đúng trong lúc kể lại
   stat?: FactStat;
   // Chi tiết một lần đột phá, để giao diện dựng hiệu ứng kết quả
@@ -129,6 +152,8 @@ export type FactStat = {
   pt: PartnerStatus;
   pa: string | null; // đạo đồ
   si: string | null; // môn phái
+  kv?: number; // thiện nghiệp trong kiếp
+  ks?: number; // ác nghiệp trong kiếp
 };
 
 export type BreakFactor = { label: string; value: number }; // value: điểm phần trăm (+/−)
@@ -189,6 +214,7 @@ export type RunState = {
   endingReason: string | null;
   achievements: string[];
   step: number; // số lựa chọn đã dùng
+  karma: { virtue: number; sin: number };
 };
 
 export class InvalidChoiceError extends Error {}
@@ -246,7 +272,18 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     heartPassed: 0,
     insight: false, // vấn tâm đạt → cộng tỉ lệ cho lần đột phá kế
     heartAskedAt: -1, // cảnh giới đã vấn tâm (mỗi bình cảnh hỏi một lần)
+    virtue: 0,
+    sin: 0,
   };
+  // Nhân quả tiền kiếp: phúc báo nâng khí vận, nghiệp chướng hạ khí vận; túc tuệ nâng ngộ tính, thức tỉnh sớm hơn
+  const K = profile.karma;
+  const { blessing, burden } = karmaBalance(K);
+  if (K) {
+    s.luck = Math.max(0, Math.min(100, s.luck + blessing - burden));
+    s.comprehension = Math.min(100, s.comprehension + Math.round(K.insight / 10));
+  }
+  const awakenAge = Math.max(5, profile.awakeningAge - (K ? Math.floor(K.insight / 20) : 0));
+  const keyed = (n: number) => (Math.imul(seed ^ 0x51ed27, n + 1) >>> 0) % 997; // số cố định theo seed, không tiêu rng
   let step = 0;
   const pathDef = () => PATHS.find((p) => p.id === s.path);
 
@@ -266,6 +303,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
       pt: s.partner,
       pa: s.path,
       si: s.sectId,
+      ...(K ? { kv: s.virtue, ks: s.sin } : {}),
     };
   };
   const log = (title: string, text: string, kind: FactKind, extra: Partial<Fact> = {}) => {
@@ -287,6 +325,10 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     if (cond.notFlag && s.flags.has(cond.notFlag)) return false;
     if (cond.rootless !== undefined && cond.rootless !== (s.rootScore === 0)) return false;
     if (cond.hasPath !== undefined && cond.hasPath !== !!s.path) return false;
+    if (cond.karma && !K) return false;
+    if (cond.minVirtue !== undefined && s.virtue < cond.minVirtue) return false;
+    if (cond.minSin !== undefined && s.sin < cond.minSin) return false;
+    if (cond.path && s.path !== cond.path) return false;
     return true;
   };
 
@@ -330,6 +372,14 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
       }
     }
     if (e.partner) s.partner = e.partner;
+    if (e.virtue) {
+      s.virtue = Math.max(0, s.virtue + e.virtue);
+      d.virtue = e.virtue;
+    }
+    if (e.sin) {
+      s.sin = Math.max(0, s.sin + e.sin);
+      d.sin = e.sin;
+    }
     if (e.flag) s.flags.add(e.flag);
     if (e.flag === "root_awakened" && s.rootScore === 0) s.rootScore = ROOTS[1].score;
     if (e.death) finish(reason ?? "Tử vong", "Một đời tu hành khép lại tại đây.");
@@ -339,6 +389,8 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
 
   const snapshot = (pending: PendingChoice | null): RunState => {
     stampLast();
+    if (s.virtue >= 40) s.flags.add("great_virtue");
+    if (s.sin >= 40) s.flags.add("great_sin");
     const flags = [...s.flags];
     const finished = !pending;
     return {
@@ -369,6 +421,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
           ).map((a) => a.id)
         : [],
       step,
+      karma: { virtue: s.virtue, sin: s.sin },
     };
   };
 
@@ -389,6 +442,8 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     origin.text + ` Nơi ngươi chào đời thuộc ${world.name}.` + (s.sectId ? ` Sơn môn ấy là ${sectName(s.sectId)}.` : ""),
     "birth",
   );
+
+  if (K) karmaIntro();
 
   try {
     simulate();
@@ -419,7 +474,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     }
 
     // ---- Thức tỉnh linh căn
-    if (s.realm === 0 && s.rootScore > 0 && (s.age >= profile.awakeningAge || s.flags.has("root_awakened"))) {
+    if (s.realm === 0 && s.rootScore > 0 && (s.age >= awakenAge || s.flags.has("root_awakened"))) {
       s.realm = 1;
       s.stage = 0;
       s.lifespan = Math.max(s.lifespan, REALMS[1].lifespan);
@@ -456,6 +511,9 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
         continue;
       }
     }
+
+    // ---- Nhân quả tiền kiếp (động phủ, tiền duyên, oan gia): mốc cố định theo seed
+    if (K && karmaEvents()) continue;
 
     // ---- Sự kiện ngẫu nhiên
     if (rng.next() < (s.realm === 0 ? cfg.eventRate * 0.75 : cfg.eventRate)) {
@@ -585,6 +643,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
           choice,
           breakthrough: info("ascend", { strikes: 9 }),
         });
+        resolveObsession(true);
         finish("Chứng đạo bất hủ", "Một đời cầu đạo viên mãn. Từ nay, ngươi chính là một phần của đại đạo.");
         return pick;
       }
@@ -601,6 +660,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
         "breakthrough",
         { choice, breakthrough: info("success", { lifespan: [before, s.lifespan], strikes: tribulation ? 9 : undefined }) },
       );
+      resolveObsession();
       return pick;
     }
 
@@ -608,7 +668,9 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     const reason = failReason(p, tribulation, strikesHeld);
     const tips = failTips(aided, canAid, insight);
     if (tribulation) {
-      const deathChance = cfg.tribulationDeath * (s.health < 60 ? 1.5 : 1) * (body.id === "thunder" ? 0.6 : 1);
+      // Công đức hộ thể giảm sát thương thiên lôi; ác nghiệp nặng thì thiên lôi càng hung
+      const karmaMul = K ? (s.virtue >= 20 ? 0.75 : 1) * (s.sin >= 20 ? 1.3 : 1) : 1;
+      const deathChance = cfg.tribulationDeath * (s.health < 60 ? 1.5 : 1) * (body.id === "thunder" ? 0.6 : 1) * karmaMul;
       if (rng.next() < deathChance) {
         log("Thiên kiếp", `Đạo thiên lôi thứ ${strikesHeld + 1} giáng xuống. Ngươi không đỡ nổi.`, "ending", {
           choice,
@@ -643,6 +705,129 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     const list = SECTS.filter((x) => x.world === world.id && x.since <= (profile.sv ?? 0));
     const h = Math.imul((seed ^ (s.tick + 1) * 0x9e3779b1) >>> 0, 0x85ebca6b) >>> 0;
     return list[h % list.length].id;
+  }
+
+  // ---------------------------------------------------------------- nhân quả
+
+  function karmaIntro() {
+    const k = K!;
+    const lines: string[] = [];
+    if (k.prev) lines.push(`Kiếp trước ngươi là ${k.prev.name}, dừng bước ở ${REALMS[k.prev.realm]?.name ?? "phàm trần"} — ${k.prev.ending.toLowerCase()}.`);
+    if (blessing) lines.push(`Thiện nghiệp kiếp trước hóa thành phúc báo: khí vận +${blessing}.`);
+    if (burden) lines.push(`Ác nghiệp kiếp trước còn đeo bám: khí vận −${burden}, bình cảnh khó qua hơn.`);
+    if (k.insight >= 5) lines.push(`Túc tuệ còn lưu (${k.insight}): ngộ tính +${Math.round(k.insight / 10)}${k.insight >= 20 ? `, linh căn thức tỉnh sớm ${Math.floor(k.insight / 20)} năm` : ""}.`);
+    if (k.obsession) lines.push(`Chấp niệm chưa dứt: kiếp trước gục ngã trước ${k.obsession.realm >= REALMS.length ? "đại đạo" : REALMS[k.obsession.realm].name}. Vượt qua được, chấp niệm sẽ tiêu tan.`);
+    if (k.bond) lines.push(`Sợi tơ hồng tiền kiếp chưa đứt — ${k.bond.name} cũng đã luân hồi.`);
+    if (k.feud) lines.push(`Oan hồn của ${k.feud.name} vẫn chờ ngày đòi nợ.`);
+    if (k.legacy) lines.push(`Đâu đó trong vạn giới, động phủ của ${k.legacy.name} vẫn còn phong ấn.`);
+    if (!lines.length) return;
+    log("Nhân quả tiền kiếp", lines.join(" "), "life");
+  }
+
+  /** Sự kiện nhân quả theo mốc cố định. Trả về true nếu lượt này đã dùng cho nhân quả. */
+  function karmaEvents(): boolean {
+    const k = K!;
+    // Động phủ tiền kiếp: sau khi bước vào tiên lộ vài năm
+    if (k.legacy && !s.flags.has("legacy_seen") && s.realm >= 1 && s.age >= awakenAge + 4 + (keyed(1) % 12)) {
+      s.flags.add("legacy_seen");
+      const L = k.legacy;
+      const realmName = REALMS[L.realm]?.name ?? "";
+      const pending: PendingChoice = {
+        eventId: "__legacy",
+        kind: "event",
+        title: L.ascended ? "Tiên phủ tiền kiếp" : "Động phủ tiền kiếp",
+        prompt: `Một vết nứt không gian kéo ngươi vào một động phủ phủ bụi. Cấm chế nhận ra khí tức của ngươi và tự mở — đây là nơi ${L.name} (${realmName}), chính là ngươi kiếp trước, để lại di sản.`,
+        options: [
+          { id: "claim", text: "Kế thừa di sản", hint: `Linh tài +${L.res}, tu vi, pháp bảo tiền kiếp (+3% đột phá)` },
+          { id: "seal", text: "Phong ấn lại cho hậu thế", hint: "Thiện nghiệp, ngộ tính; di sản còn chờ kiếp sau" },
+        ],
+      };
+      const pick = take(pending);
+      if (pick === "claim") {
+        s.flags.add("legacy_claimed");
+        s.flags.add("relic");
+        s.resources += L.res;
+        const at = s.facts.length;
+        log(pending.title, `Ngươi quỳ trước bồ đoàn của chính mình kiếp trước, thu lấy linh tài và pháp bảo. Ký ức mơ hồ ùa về: cảm giác như về nhà.`, "opportunity", { choice: "Kế thừa di sản" });
+        s.facts[at].delta = { resources: L.res, ...apply({ cultivation: 40 + L.realm * 8, comprehension: 2 }) };
+      } else {
+        const at = s.facts.length;
+        log(pending.title, "Ngươi khép lại cánh cửa đá, gia cố cấm chế. Có những thứ nên để dành cho người cần hơn — dù người đó lại chính là ngươi.", "life", { choice: "Phong ấn lại" });
+        s.facts[at].delta = apply({ virtue: 4, comprehension: 3 });
+      }
+      return true;
+    }
+    // Tiền duyên: đạo lữ kiếp trước tái ngộ
+    if (k.bond && !s.flags.has("bond_seen") && s.partner === "none" && s.age >= 17 + (keyed(2) % 10) && s.realm <= 8) {
+      s.flags.add("bond_seen");
+      const pending: PendingChoice = {
+        eventId: "__bond",
+        kind: "event",
+        title: "Cố nhân tái ngộ",
+        prompt: `Giữa phố chợ đông đúc, một người khẽ quay đầu. Chưa từng gặp, vậy mà tim ngươi thắt lại — trong mộng ngươi đã gọi cái tên ${k.bond.name} không biết bao nhiêu lần.`,
+        options: [
+          { id: "bond", text: "Bước tới, nối lại tiền duyên", hint: "Kết đạo lữ · khí vận" },
+          { id: "let", text: "Để duyên trôi theo gió", hint: "Ngộ tính" },
+        ],
+      };
+      const pick = take(pending);
+      const at = s.facts.length;
+      if (pick === "bond") {
+        log("Cố nhân tái ngộ", `Hai người nhìn nhau rất lâu rồi cùng bật cười. ${k.bond.name} khẽ nói: "Lần này, đừng để ta đợi lâu nữa."`, "opportunity", { choice: "Nối lại tiền duyên" });
+        s.facts[at].delta = apply({ partner: "partner", flag: "partnered", luck: 6, virtue: 2 });
+        s.flags.add("bond_renewed");
+      } else {
+        log("Cố nhân tái ngộ", "Ngươi đứng yên nhìn bóng người khuất dần trong dòng người. Có những duyên phận, buông tay cũng là một cách giữ.", "life", { choice: "Để duyên trôi" });
+        s.facts[at].delta = apply({ comprehension: 3 });
+      }
+      return true;
+    }
+    // Oan gia: nạn nhân ác nghiệp kiếp trước tìm đến
+    if (k.feud && !s.flags.has("feud_seen") && s.age >= 22 + (keyed(3) % 14)) {
+      s.flags.add("feud_seen");
+      const options: PendingChoice["options"] = [
+        { id: "atone", text: "Chân thành chuộc lỗi", hint: "Tốn linh tài · hóa giải, thiện nghiệp" },
+        { id: "fight", text: "Rút kiếm nghênh chiến", hint: "Có thể mất mạng" },
+      ];
+      if (s.path === "phat") options.push({ id: "release", text: "Tụng kinh siêu độ oan hồn", hint: "Phật tu · hóa giải trọn vẹn" });
+      const pending: PendingChoice = {
+        eventId: "__feud",
+        kind: "event",
+        title: "Oan gia tìm đến",
+        prompt: `Một kẻ lạ chặn đường, ánh mắt đầy oán hận: "Ngươi không nhớ ta, nhưng ta nhớ ngươi. Kiếp trước ngươi nợ ${k.feud.name} một mạng."`,
+        options,
+      };
+      const pick = take(pending);
+      const at = s.facts.length;
+      if (pick === "atone") {
+        log("Oan gia tìm đến", "Ngươi cúi đầu nhận lỗi thay cho chính mình kiếp trước, dâng linh tài bồi thường. Oán khí trong mắt kẻ kia dần tan.", "life", { choice: "Chuộc lỗi" });
+        s.facts[at].delta = apply({ resources: -30, virtue: 6, sin: -6, flag: "feud_resolved" });
+      } else if (pick === "release") {
+        log("Oan gia tìm đến", "Tiếng kinh trầm ấm vang suốt ba ngày ba đêm. Oan hồn rơi lệ, chắp tay rồi tan vào ánh sáng.", "opportunity", { choice: "Siêu độ" });
+        s.facts[at].delta = apply({ virtue: 8, sin: -10, comprehension: 3, flag: "feud_resolved" });
+      } else {
+        const out = rng.pick([
+          { weight: 55, t: "Ngươi thắng, nhưng máu lại đổ thêm. Vòng oán hận chưa biết đến bao giờ mới dứt.", e: { sin: 5, resources: 20, health: -15 } as Effects },
+          { weight: 35, t: "Kẻ kia liều mạng như không cần sống. Ngươi thoát được với thương tích đầy mình.", e: { health: -40 } as Effects },
+          { weight: 10, t: "Oán khí hai kiếp dồn vào một nhát kiếm. Ngươi ngã xuống — món nợ đã được đòi.", e: { death: true } as Effects },
+        ]);
+        log("Oan gia tìm đến", out.t, out.e.death ? "ending" : "disaster", { choice: "Nghênh chiến" });
+        s.facts[at].delta = apply(out.e, "Chết dưới tay oan gia tiền kiếp");
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /** Vượt qua cảnh giới kiếp trước gục ngã → chấp niệm tiêu tan. */
+  function resolveObsession(ascend = false) {
+    const ob = K?.obsession;
+    if (!ob || s.flags.has("obsession_resolved")) return;
+    if (!(ascend ? ob.realm >= REALMS.length : s.realm >= ob.realm)) return;
+    s.flags.add("obsession_resolved");
+    const at = s.facts.length;
+    log("Chấp niệm tiêu tan", `Bước qua nơi ${ob.name} từng gục ngã, một tiếng thở dài từ sâu trong hồn phách tan biến. Chấp niệm kiếp trước đã dứt — đạo tâm sáng như gương.`, "opportunity");
+    if (!s.endingReason) s.facts[at].delta = apply({ lifespan: Math.round(REALMS[s.realm].lifespan * 0.1), comprehension: 5, luck: 5 });
   }
 
   function inMystic() {
@@ -684,6 +869,11 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
       ["Vấn tâm", s.insight ? 0.1 : 0],
       ["Đạo Luận tu", s.path === "daoluan" ? 0.03 : 0],
       ["Huyền học Quy Chân", inMystic() ? 0.04 : 0],
+      ["Phúc báo tiền kiếp", K ? blessing / 250 : 0],
+      ["Nghiệp chướng", K ? -burden / 125 - (s.sin >= 30 ? 0.04 : 0) : 0],
+      ["Đường quen (túc tuệ)", K && target <= K.pastBest ? 0.05 : 0],
+      ["Chấp niệm tiền kiếp", K?.obsession && target === K.obsession.realm && !s.flags.has("obsession_resolved") ? 0.05 : 0],
+      ["Pháp bảo tiền kiếp", s.flags.has("relic") ? 0.03 : 0],
       ["Trúc Cơ Đan", target === 2 && s.flags.has("pill") ? 0.2 : 0],
       ["Thiên ý", cfg.breakthroughBonus / 100],
     ];

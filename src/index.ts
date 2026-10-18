@@ -8,6 +8,8 @@ import { gameConfigOf, getSettings } from "./settings";
 import { banksFor, currentBanks, familyOf, idsForFamilies } from "./quiz-store";
 import { dueFamilies, recordAnswers } from "./srs";
 import { leaderTitle, onRunEnded, tickAll } from "./sect";
+import { inheritKarma, karmaStatements } from "./karma";
+import { karmaBalance } from "./game/engine";
 import { sects } from "./sect-api";
 
 export { Matchmaker } from "./duel/matchmaker";
@@ -85,6 +87,8 @@ app.post("/api/game/runs", async (c) => {
     const review = due.map((d) => ids.get(d.family)).filter((x): x is string => !!x);
     if (review.length) profile.review = review;
   }
+  // Nhân quả luân hồi: những gì các kiếp trước để lại
+  profile.karma = await inheritKarma(db, user.id);
   const state = replay(seed, profile, [], banks);
   const id = crypto.randomUUID();
   const now = Date.now();
@@ -101,7 +105,7 @@ app.post("/api/game/runs", async (c) => {
     ).bind(user.id, pity, now),
   ]);
   for (const r of prev.results) await onRunEnded(db, r.id, "Luân hồi sớm");
-  const unlocked = await saveProgress(db, id, user.id, state);
+  const unlocked = await saveProgress(db, id, user.id, state, profile);
   return c.json({ ...view(id, (last?.n ?? 0) + 1, profile, state), unlocked }, 201);
 });
 
@@ -159,7 +163,7 @@ app.post("/api/game/runs/:id/choices", async (c) => {
   }
   await db.prepare("INSERT INTO run_choices (run_id, step, event_id, choice_id, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING")
     .bind(run.id, body.step, body.eventId, body.choiceId, Date.now()).run();
-  const unlocked = await saveProgress(db, run.id, user.id, state);
+  const unlocked = await saveProgress(db, run.id, user.id, state, profile);
   return c.json({ ...view(run.id, run.number, profile, state), unlocked });
 });
 
@@ -186,6 +190,35 @@ app.get("/api/game/runs", async (c) => {
     "SELECT id, number, world, status, best_realm, age, ending_reason, created_at, ended_at FROM runs WHERE user_id = ? ORDER BY number DESC LIMIT 50",
   ).bind(c.get("user").id).all();
   return c.json(results);
+});
+
+// Sổ Sinh Tử: chuỗi các kiếp kèm nhân quả mỗi kiếp nhận vào / để lại, và nhân quả đang chờ kiếp sau
+app.get("/api/game/lives", async (c) => {
+  const user = c.get("user");
+  const db = c.env.DB;
+  const [{ results }, legs, next] = await Promise.all([
+    db.prepare(`SELECT id, number, seed, world, status, best_realm, age, ending_reason, profile_json, karma_json, created_at, ended_at
+                FROM runs WHERE user_id = ? ORDER BY number DESC LIMIT 60`).bind(user.id)
+      .all<{ id: string; number: number; seed: number; world: string; status: string; best_realm: number; age: number; ending_reason: string | null; profile_json: string; karma_json: string | null; created_at: number; ended_at: number | null }>(),
+    db.prepare("SELECT id, from_run, name, realm, res, world, ascended, claimed_run FROM legacies WHERE user_id = ?").bind(user.id)
+      .all<{ id: string; from_run: string; name: string; realm: number; res: number; world: string; ascended: number; claimed_run: string | null }>(),
+    inheritKarma(db, user.id),
+  ]);
+  const legBy = new Map(legs.results.map((l) => [l.from_run, l]));
+  const lives = results.map((r) => {
+    const p = JSON.parse(r.profile_json) as Profile;
+    const k = r.karma_json ? (JSON.parse(r.karma_json) as { v: number; s: number; partner: string }) : null;
+    const leg = legBy.get(r.id);
+    const claimedFrom = legs.results.find((l) => l.claimed_run === r.id);
+    return {
+      id: r.id, number: r.number, seed: r.seed, name: p.name, gender: p.gender, world: r.world, status: r.status,
+      realm: r.best_realm, age: r.age, ending: r.ending_reason, createdAt: r.created_at, endedAt: r.ended_at,
+      virtue: k?.v ?? 0, sin: k?.s ?? 0, partner: k?.partner ?? null,
+      inherited: p.karma ? { ...p.karma, ...karmaBalance(p.karma), legacy: p.karma.legacy ? { name: p.karma.legacy.name, realm: p.karma.legacy.realm, claimed: !!claimedFrom } : undefined } : null,
+      left: leg ? { realm: leg.realm, res: leg.res, ascended: !!leg.ascended, claimed: !!leg.claimed_run } : null,
+    };
+  });
+  return c.json({ lives, next: { ...next, ...karmaBalance(next) } });
 });
 
 // Công khai. Mỗi người chỉ hiện kiếp tốt nhất. Khách vẫn lên bảng nhưng hiện "Vô danh tu sĩ" cho đến khi đăng ký.
@@ -399,7 +432,7 @@ async function loadChoices(db: D1Database, runId: string): Promise<ChoiceInput[]
 }
 
 // Trả về danh sách thành tựu mới mở khoá (nếu kiếp vừa kết thúc)
-async function saveProgress(db: D1Database, runId: string, userId: string, s: RunState): Promise<string[]> {
+async function saveProgress(db: D1Database, runId: string, userId: string, s: RunState, profile: Profile): Promise<string[]> {
   const finished = s.phase === "finished";
   let unlocked: string[] = [];
   let all: string[] = [];
@@ -413,6 +446,7 @@ async function saveProgress(db: D1Database, runId: string, userId: string, s: Ru
     db.prepare("UPDATE runs SET best_realm = ?, age = ?, status = ?, ending_reason = ?, ended_at = ?, sect_id = ?, sect_rank = ?, path = ? WHERE id = ? AND status = 'active'")
       .bind(s.realm, s.age, finished ? "finished" : "active", s.endingReason, finished ? Date.now() : null, s.sectId, s.sectId && s.sect !== "none" ? s.sect : null, s.path, runId),
   ];
+  stmts.push(...karmaStatements(db, runId, userId, profile, s, finished));
   if (finished) {
     stmts.push(
       db.prepare("UPDATE user_stats SET best_realm = MAX(best_realm, ?), longest_age = MAX(longest_age, ?), achievements_json = ?, updated_at = ? WHERE user_id = ?")

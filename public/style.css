@@ -782,3 +782,33 @@ button, a, .option { touch-action: manipulation; -webkit-tap-highlight-color: tr
 .row-av .avatar-svg { width: 40px; height: 40px; filter: none; }
 @media (max-width: 900px) { .item.has-av { grid-template-columns: 26px 36px 1fr auto; gap: 8px; } .row-av .avatar-svg { width: 36px; height: 36px; } }
 .sect-perk { margin-top: 6px; font-size: 13px; color: var(--gold); }
+
+/* ---------- Nhân quả & Sổ Sinh Tử */
+.delta.sin { color: var(--danger); }
+.delta.virtue { color: var(--good); }
+.karma-next { border: 1px solid color-mix(in srgb, var(--gold) 45%, var(--line)); background: var(--panel); border-radius: 12px; padding: 16px 18px; margin: 16px 0 20px; }
+.kchips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+.kchip { font-size: 12px; padding: 2px 9px; border-radius: 99px; border: 1px solid var(--line); color: var(--ink-2); background: var(--bg); }
+.kchip.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+.kchip.bad { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+.karma-bal { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 10px; font-size: 13px; align-items: baseline; }
+.lives { list-style: none; padding: 0; margin: 0; position: relative; }
+.lives::before { content: ""; position: absolute; left: 33px; top: 8px; bottom: 8px; width: 2px; background: var(--line); }
+.life { position: relative; margin-bottom: 10px; }
+.life-card { display: grid; grid-template-columns: 66px 1fr auto; gap: 12px; align-items: start; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: inherit; text-decoration: none; }
+.life-card:hover { background: var(--bg-2); }
+.life-card .title { font-family: var(--serif); font-size: 18px; }
+.life-card .title .realm { font-size: 14px; margin-left: 6px; }
+.life-card .sub { font-size: 13px; color: var(--muted); }
+.life-av { position: relative; z-index: 1; display: block; }
+.life-av.faded .avatar-svg { filter: grayscale(.7); }
+.kbars { display: flex; align-items: center; gap: 3px; margin-top: 6px; font-size: 12px; color: var(--muted); }
+.kbars .kb { height: 5px; border-radius: 4px; min-width: 0; max-width: 40%; }
+.kbars .kb.v { background: var(--good); }
+.kbars .kb.s { background: var(--danger); }
+.kbars small { margin-left: 6px; white-space: nowrap; }
+@media (max-width: 900px) {
+  .life-card { grid-template-columns: 48px 1fr auto; gap: 10px; padding: 10px; }
+  .life-av .avatar-svg { width: 48px; height: 48px; }
+  .lives::before { left: 34px; }
+}
