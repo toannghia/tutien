@@ -63,10 +63,9 @@ Hệ thống nhắc lại câu hỏi theo đường cong quên lãng (`src/srs.t
 - **Sai:** gặp lại sau 10 phút, độ dễ giảm, tăng số lần quên. **Bỏ qua:** gặp lại sau 10 phút, không giảm độ dễ.
 - **Độ nhớ ước tính:** R = e^(−t / (1,4·S)), với S là khoảng cách ôn hiện tại.
 
-Câu đến hạn quay lại theo ba đường:
-1. **Trong kiếp:** khi tạo kiếp, danh sách câu đến hạn được lưu vào `profile.review` (để phát lại tất định). Khảo hạch xen kẽ, cứ một câu ôn rồi một câu mới, có nhãn "Ôn lại".
-2. **Trang Ôn tập** (`/#/review`): phiên thẻ ôn 10 câu (câu đến hạn trước, thiếu thì thêm câu mới), có thống kê và lịch ôn 7 ngày tới.
-3. **Luận đạo:** mỗi câu trong trận được tính là một lần ôn.
+Ôn tập **ẩn trong việc ra đề**: không có trang hay tab riêng, cũng không gắn nhãn. Người chơi chỉ thấy câu hỏi như bình thường.
+1. **Trong kiếp:** khi tạo kiếp, danh sách câu đến hạn được lưu vào `profile.review` (để phát lại tất định). Khảo hạch xen kẽ, cứ một câu ôn rồi một câu mới.
+2. **Luận đạo:** khi mở phòng, câu đến hạn của từng người chơi được trộn vào đề (`mixReview`: xen kẽ hai người, tối đa 40% số câu, ưu tiên ô cùng cấp độ). Mỗi câu trong trận được tính là một lần ôn.
 
 Khi khách đăng ký tài khoản, sổ nhớ được gộp theo câu và giữ bản ôn gần nhất.
 

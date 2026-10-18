@@ -96,7 +96,6 @@ async function boot() {
   // Lần đầu mở game: tạo ngay tài khoản khách trên máy chủ
   if (!session) await api("/api/auth/sign-in/anonymous", { method: "POST", body: {} });
   await refreshMe();
-  refreshReviewBadge();
   window.addEventListener("hashchange", route);
   route();
 }
@@ -129,7 +128,6 @@ function route() {
   closeDuel();
   const pages = { "": renderHome, play: renderPlay, world: () => renderWorld(),
     admin: () => renderAdmin(),
-    review: () => renderReview(),
     sects: arg ? () => renderSect(arg) : () => renderSects(),
     duel: arg === "join" ? () => Promise.resolve(joinRoom(arg2)) : renderDuel, history: arg ? () => renderHistoryDetail(arg) : renderHistory, rank: renderRank, codex: renderCodex };
   (pages[name] ?? renderHome)().catch((e) => ($view.innerHTML = `<div class="empty">${esc(e.message)}</div>`));
@@ -147,7 +145,7 @@ async function renderHome() {
       <h1>Tu Tiên Lộ</h1>
       <p>Giữa vạn giới mênh mang, một sinh mệnh thức giấc. Phàm nhân hay tiên nhân — số mệnh nào đang đợi ngươi?</p>
       <a class="btn big" href="#/play">${current ? `Tiếp tục kiếp ${pad(current.number)}` : "Tu tiên"}</a>
-      <div class="home-links"><a href="#/sects">門 Môn phái</a><a href="#/review">習 Ôn tập</a><a href="#/history">史 Lịch sử các kiếp</a></div>
+      <div class="home-links"><a href="#/sects">門 Môn phái</a><a href="#/history">史 Lịch sử các kiếp</a></div>
       ${s.total_runs ? `<div class="home-stats"><span>${s.total_runs} kiếp đã qua</span><span>Cao nhất: ${esc(app.codex.realms[s.best_realm].name)}</span><span>Thọ lâu nhất: ${fmt(s.longest_age)} tuổi</span><span>${app.me.achievements.length}/${app.codex.achievements.length} thành tựu</span></div>` : ""}
     </section>
     <section class="pillars">
@@ -497,7 +495,7 @@ function openQuiz(p) {
     `<div class="head"><span>${esc(p.school ?? "Khảo hạch")} · ${esc(p.title)}</span><span class="quiz-progress">${esc(p.progress ?? "")}</span></div>
      <div class="body">
        ${p.intro ? `<p class="muted small quiz-intro">${esc(p.intro)}</p>` : ""}
-       <div class="eyebrow">✦ Câu hỏi${p.review ? ` <span class="review-tag again">Ôn lại</span>` : ""}</div>
+       <div class="eyebrow">✦ Câu hỏi</div>
        <h2 class="quiz-q">${esc(p.prompt)}</h2>
        <div id="answers">${answers
          .map((o, i) => `<button class="option quiz-opt" data-id="${esc(o.id)}"><span class="n">${"ABCD"[i] ?? i + 1}</span><span>${esc(o.text)}</span><span class="mark"></span></button>`)
@@ -2208,103 +2206,6 @@ function openQuestionEditor(item, onSaved) {
     }
     if (!data.errors) toast(data.message ?? "Không lưu được.");
   };
-}
-
-// ---------------------------------------------------------------- Ôn tập ngắt quãng
-
-const intervalText = (days) => (days < 1 / 24 ? `${Math.max(1, Math.round(days * 1440))} phút` : days < 1 ? `${Math.round(days * 24)} giờ` : days < 30 ? `${Math.round(days)} ngày` : `${Math.round(days / 30)} tháng`);
-
-async function refreshReviewBadge() {
-  try {
-    const s = await api("/api/review/summary");
-    document.querySelectorAll('a[data-route="review"]').forEach((a) => {
-      a.querySelector(".badge-due")?.remove();
-      if (s.due > 0) a.insertAdjacentHTML("beforeend", `<span class="badge-due">${s.due > 99 ? "99+" : s.due}</span>`);
-    });
-    return s;
-  } catch {
-    return null;
-  }
-}
-
-async function renderReview() {
-  const s = await refreshReviewBadge();
-  if (!s) throw new Error("Không tải được sổ nhớ.");
-  const paths = app.codex.paths;
-  const pct = (x) => (x === null ? "—" : `${Math.round(x * 100)}%`);
-  const n = s.due > 0 ? Math.min(10, s.due) : 10;
-  $view.innerHTML = `<div class="page review-page">
-    <h1>Ôn tập</h1>
-    <p class="muted">Nhắc lại câu hỏi theo <b>đường cong quên lãng</b>: trả lời đúng thì lần ôn sau giãn dần (1 ngày → 3 ngày → 1 tuần → vài tuần…), trả lời sai thì gặp lại sớm. Câu đến hạn cũng xuất hiện xen kẽ trong khảo hạch khi tu tiên và trong luận đạo.</p>
-    <div class="stats">
-      <div class="stat"><small>Cần ôn ngay</small><b>${fmt(s.due)}</b><span>${fmt(s.dueToday)} câu đến hạn trong hôm nay</span></div>
-      <div class="stat"><small>Đang học</small><b>${fmt(s.learning)}</b><span>khoảng ôn dưới 3 tuần</span></div>
-      <div class="stat"><small>Đã thuộc</small><b>${fmt(s.mastered)}</b><span>nhớ được từ 3 tuần trở lên</span></div>
-      <div class="stat"><small>Độ nhớ ước tính</small><b>${pct(s.retention)}</b><span>tỉ lệ đúng ${pct(s.accuracy)}</span></div>
-    </div>
-    <div class="review-start">
-      <button class="btn big" id="startReview">${s.due > 0 ? `Ôn ngay ${n} câu` : "Học 10 câu mới"}</button>
-      <select id="reviewPath" aria-label="Chọn đạo đồ"><option value="">Mọi đạo đồ</option>${paths.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join("")}</select>
-    </div>
-    <div class="charts">
-      ${barChart("Lịch ôn 7 ngày tới", s.upcoming, "câu")}
-      ${hbarList("Đã học theo đạo đồ", paths.map((p) => ({ k: `${p.name} (${s.byPath[p.id]?.learned ?? 0}/${s.byPath[p.id]?.total ?? 0})`, n: s.byPath[p.id]?.learned ?? 0 })))}
-    </div>
-  </div>`;
-  wireTooltips($view);
-  document.getElementById("startReview").onclick = () => startReview(document.getElementById("reviewPath").value);
-}
-
-async function startReview(path) {
-  const { items } = await api(`/api/review/session?n=10${path ? `&path=${path}` : ""}`);
-  if (!items.length) return toast("Không còn câu nào để ôn trong đạo đồ này.");
-  const pathName = (id) => app.codex.paths.find((p) => p.id === id)?.name ?? id;
-  let i = 0, correct = 0;
-  const show = () => {
-    const it = items[i];
-    $view.innerHTML = `<div class="page review-card">
-      <div class="review-top"><span class="muted small">${i + 1}/${items.length} · ${esc(pathName(it.path))} · Cấp ${it.level}</span>
-        <span class="review-tag ${it.isNew ? "new" : "again"}">${it.isNew ? "Câu mới" : it.lapses ? `Ôn lại · từng quên ${it.lapses} lần` : "Ôn lại"}</span></div>
-      <div class="bar"><i style="width:${(i / items.length) * 100}%"></i></div>
-      <h2 class="quiz-q">${esc(it.prompt)}</h2>
-      <div>${it.options.map((o, k) => `<button class="option quiz-opt" data-id="${esc(o.id)}"><span class="n">${"ABCDEF"[k]}</span><span>${esc(o.text)}</span><span class="mark"></span></button>`).join("")}</div>
-      <div id="reviewResult"></div>
-      <div class="quiz-foot" id="reviewFoot"><button class="btn ghost small" id="reviewSkip">Chưa biết — xem đáp án</button></div>
-    </div>`;
-    const submit = async (choiceId) => {
-      $view.querySelectorAll(".quiz-opt, #reviewSkip").forEach((b) => (b.disabled = true));
-      const r = await api("/api/review/answer", { method: "POST", body: { qid: it.qid, choiceId } });
-      if (r.ok) correct++;
-      $view.querySelectorAll(".quiz-opt").forEach((b) => {
-        if (b.dataset.id === r.answer) b.classList.add("right");
-        else if (b.dataset.id === choiceId) b.classList.add("wrong");
-      });
-      document.getElementById("reviewResult").innerHTML = `<div class="quiz-result ${r.ok ? "ok" : "no"}">
-        <b>${r.ok ? "✓ Nhớ đúng" : r.skipped ? "Chưa biết" : "✗ Chưa đúng"}</b>${r.ok ? "" : ` — đáp án: <b>${esc(r.answerText)}</b>`}
-        <p>${esc(r.explain)}</p>
-        <p class="small muted">Lần ôn tiếp theo: <b>sau ${intervalText(r.interval)}</b>${r.ok && r.reps >= 3 ? " · trí nhớ đang vững dần" : ""}</p></div>`;
-      document.getElementById("reviewFoot").innerHTML = `<button class="btn" id="reviewNext">${i + 1 < items.length ? "Câu tiếp ›" : "Xem kết quả"}</button>`;
-      const next = document.getElementById("reviewNext");
-      next.focus();
-      next.onclick = () => {
-        i++;
-        if (i < items.length) show();
-        else done();
-      };
-    };
-    $view.querySelectorAll(".quiz-opt").forEach((b) => (b.onclick = () => submit(b.dataset.id)));
-    document.getElementById("reviewSkip").onclick = () => submit("skip");
-  };
-  const done = async () => {
-    $view.innerHTML = `<div class="page review-card" style="text-align:center">
-      <div class="bt-big" style="color:var(--gold)">習</div><h2>Xong phiên ôn</h2>
-      <p class="muted">Nhớ đúng <b>${correct}/${items.length}</b> câu. Những câu chưa nhớ sẽ quay lại sớm; câu đã nhớ sẽ giãn lịch ôn.</p>
-      <div class="actions" style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap"><button class="btn" id="again">Ôn tiếp</button><button class="btn ghost" id="back">Về sổ nhớ</button></div></div>`;
-    document.getElementById("again").onclick = () => startReview(path);
-    document.getElementById("back").onclick = () => renderReview();
-    refreshReviewBadge();
-  };
-  show();
 }
 
 // Chỉ khi chạy local: cho phép gọi thử các cảnh đột phá từ console để xem hiệu ứng

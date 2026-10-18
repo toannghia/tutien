@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { botAnswer, DUEL, eloDelta, makeBot, pickDuelQuestions, points, ratingWindow, winnerOf } from "../src/duel/logic";
+import { botAnswer, DUEL, eloDelta, makeBot, mixReview, pickDuelQuestions, points, ratingWindow, winnerOf } from "../src/duel/logic";
 
 const seeded = (seed: number) => () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
@@ -63,5 +63,23 @@ describe("phòng mời bạn", () => {
       expect(c).toMatch(/^[A-HJKMNP-Z2-9]{5}$/);
       expect(normalizeCode(` ${c.toLowerCase().slice(0, 2)}-${c.slice(2)} `)).toBe(c);
     }
+  });
+});
+
+describe("ôn tập ẩn trong luận đạo", () => {
+  const mk = (id: string, level: 1 | 2 | 3) => ({ id, level, prompt: id, options: [{ id: "a", text: "a" }, { id: "b", text: "b" }], answer: "a", explain: "" });
+  const base = [mk("q1", 1), mk("q2", 1), mk("q3", 2), mk("q4", 2), mk("q5", 3)];
+  it("thay tối đa 40% số câu, xen kẽ hai người, ưu tiên cùng cấp độ", () => {
+    const out = mixReview(base, [[mk("a1", 3), mk("a2", 1)], [mk("b1", 2), mk("b2", 2)]]);
+    expect(out).toHaveLength(5);
+    expect(out.map((q) => q.id)).toContain("a1");
+    expect(out.map((q) => q.id)).toContain("b1");
+    expect(out.filter((q) => !q.id.startsWith("q"))).toHaveLength(2);
+    expect(out[4].id).toBe("a1"); // câu cấp 3 vào ô cấp 3
+  });
+  it("không trùng câu, không có câu đến hạn thì giữ nguyên đề", () => {
+    expect(mixReview(base, [[], []])).toEqual(base);
+    const out = mixReview(base, [[mk("q3", 2), mk("x", 1)]]);
+    expect(new Set(out.map((q) => q.id)).size).toBe(5);
   });
 });

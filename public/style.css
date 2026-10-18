@@ -336,15 +336,6 @@ table.mini td, table.mini th { padding: 2px 6px; border-bottom: 1px solid var(--
 .sect-power b { display: block; font-family: var(--serif); font-size: 20px; font-weight: 500; }
 .sect-power small { color: var(--muted); font-size: 11px; }
 
-/* ---------- Ôn tập ---------- */
-.review-start { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 18px 0 6px; }
-.review-start select { background: var(--bg); color: var(--ink); border: 1px solid var(--line); border-radius: 4px; padding: 10px; font: 15px var(--sans); }
-.review-card { max-width: 640px; margin: 0 auto; }
-.review-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
-.review-tag { font: 600 11px var(--sans); letter-spacing: 0; text-transform: none; border-radius: 99px; padding: 1px 8px; border: 1px solid; vertical-align: middle; }
-.review-tag.new { color: var(--good); border-color: color-mix(in srgb, var(--good) 50%, transparent); }
-.review-tag.again { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 55%, transparent); }
-.review-card .bar { margin: 4px 0 14px; }
 .home-links { display: flex; gap: 18px; justify-content: center; margin-top: 14px; font-size: 14px; }
 .home-links a { color: var(--ink-2); text-decoration: none; border-bottom: 1px dashed var(--line); }
 a[data-route] { position: relative; }
@@ -612,7 +603,7 @@ button, a, .option { touch-action: manipulation; -webkit-tap-highlight-color: tr
   .account-chip { max-width: 160px; }
 
   /* Thanh điều hướng dưới đáy, kiểu ứng dụng */
-  .tabbar { display: grid; grid-template-columns: repeat(7, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  .tabbar { display: grid; grid-template-columns: repeat(6, 1fr); position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
     background: color-mix(in srgb, var(--panel) 94%, transparent); backdrop-filter: blur(10px);
     border-top: 1px solid var(--line); padding-bottom: env(safe-area-inset-bottom); }
   .tabbar a { display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 7px 0 6px; font-size: 11px; color: var(--muted); text-decoration: none; }

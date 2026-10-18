@@ -4,7 +4,6 @@ import { ACHIEVEMENTS, ORIGINS, PATHS, PHYSIQUES, REALMS, ROOTS, SECTS, WORLDS }
 import { DUEL, type Fighter } from "./duel/logic";
 
 import { admin, isAdmin } from "./admin";
-import { review } from "./review";
 import { gameConfigOf, getSettings } from "./settings";
 import { banksFor, currentBanks, familyOf, idsForFamilies } from "./quiz-store";
 import { dueFamilies, recordAnswers } from "./srs";
@@ -205,7 +204,6 @@ app.get("/api/leaderboard", async (c) => {
 });
 
 app.route("/api/admin", admin);
-app.route("/api/review", review);
 app.route("/api/sects", sects);
 
 // ---------------------------------------------------------------- Bản đồ thế giới

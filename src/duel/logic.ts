@@ -62,6 +62,33 @@ export function pickDuelQuestions(rand: () => number = Math.random, count = DUEL
   });
 }
 
+/**
+ * Ôn tập ngắt quãng, ẩn trong trận: thay một phần câu bằng câu đến hạn ôn của từng người chơi
+ * (xen kẽ giữa hai người cho công bằng, tối đa 40% số câu, ưu tiên ô cùng cấp độ). Không gắn nhãn gì.
+ */
+export function mixReview(qs: Question[], due: Question[][], cap = Math.floor(qs.length * 0.4)): Question[] {
+  const out = [...qs];
+  const used = new Set(out.map((q) => q.id));
+  const replaced = new Set<number>();
+  const queues = due.map((list) => [...list]);
+  while (replaced.size < cap && queues.some((l) => l.length)) {
+    for (const list of queues) {
+      if (replaced.size >= cap) break;
+      let q: Question | undefined;
+      while (list.length && (!q || used.has(q.id))) q = list.shift();
+      if (!q || used.has(q.id)) continue;
+      const free = out.map((_, i) => i).filter((i) => !replaced.has(i));
+      const slot = free.find((i) => out[i].level === q!.level) ?? free[free.length - 1];
+      if (slot === undefined) break;
+      used.delete(out[slot].id);
+      out[slot] = q;
+      used.add(q.id);
+      replaced.add(slot);
+    }
+  }
+  return out;
+}
+
 // Đáp án xáo trộn theo phòng, dùng chung cho cả hai người
 export function shuffled<T>(arr: T[], rand: () => number = Math.random): T[] {
   const a = [...arr];

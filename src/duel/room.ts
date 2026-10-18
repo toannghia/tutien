@@ -3,10 +3,10 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "../auth";
 import { BANKS, type Question } from "../game/quiz";
-import { currentBanks, familyOf } from "../quiz-store";
-import { recordAnswers } from "../srs";
+import { currentBanks, familyOf, idsForFamilies } from "../quiz-store";
+import { dueFamilies, recordAnswers } from "../srs";
 import { awardDuel } from "../sect";
-import { botAnswer, DUEL, DUEL_DEFAULTS, eloDelta, pickDuelQuestions, points, shuffled, winnerOf, type DuelConfig, type Fighter } from "./logic";
+import { botAnswer, DUEL, DUEL_DEFAULTS, eloDelta, mixReview, pickDuelQuestions, points, shuffled, winnerOf, type DuelConfig, type Fighter } from "./logic";
 
 type Answer = { choiceId: string | null; ok: boolean; ms: number; points: number };
 type Player = Fighter & { connected: boolean; answers: (Answer | null)[]; score: number; correct: number; delta: number; newRating: number | null };
@@ -75,8 +75,22 @@ export class DuelRoom extends DurableObject<Env> {
   }
 
   private async init({ roomId, fighters, friendly = false, cfg = DUEL_DEFAULTS }: { roomId: string; fighters: Fighter[]; friendly?: boolean; cfg?: DuelConfig }) {
-    const { banks } = await currentBanks(this.env.DB);
-    const qs = pickDuelQuestions(Math.random, cfg.questions, Object.values(banks).flat());
+    const db = this.env.DB;
+    const { version, banks } = await currentBanks(db);
+    const all = Object.values(banks).flat();
+    let qs = pickDuelQuestions(Math.random, cfg.questions, all);
+    // Câu đến hạn ôn của từng người chơi được trộn lặng lẽ vào đề
+    if (version) {
+      const byId = new Map(all.map((q) => [q.id, q]));
+      const due = await Promise.all(
+        fighters.filter((f) => !f.bot).map(async (f) => {
+          const fams = await dueFamilies(db, f.id, { limit: 6 }).catch(() => []);
+          const ids = await idsForFamilies(db, version, fams.map((x) => x.family));
+          return fams.map((x) => byId.get(ids.get(x.family) ?? "")).filter((q): q is NonNullable<typeof q> => !!q);
+        }),
+      );
+      qs = mixReview(qs, due);
+    }
     const now = Date.now();
     this.room = {
       roomId,
