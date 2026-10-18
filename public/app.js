@@ -5,6 +5,7 @@ import { createWorldMap } from "./worldmap.js";
 import { avatarSvg } from "./avatar.js";
 import { flagSvg } from "./banner.js";
 import { EMBLEM_GROUPS, emblemGroup, emblemSvg } from "./emblem.js";
+import { bodyArt, originArt, pathArt, rootArt, worldArt } from "./icons.js";
 import { PATH_DETAIL, PHYSIQUE_LORE, REALM_LORE, ROOT_LORE, SECT_GUIDE, WORLD_LORE } from "./codex-text.js";
 
 const $view = document.getElementById("view");
@@ -1322,7 +1323,8 @@ function guideLuanHoi(c) {
 async function renderCodex(tab = "luanhoi") {
   const c = app.codex;
   const tabs = { luanhoi: "Luân hồi", paths: "Đạo đồ", realms: "Cảnh giới", roots: "Linh căn", physiques: "Thể chất", origins: "Xuất thân", worlds: "Giới diện", sects: "Môn phái", achievements: "Thành tựu" };
-  const card = (title, body, locked = false) => `<div class="card ${locked ? "locked" : ""}"><h3>${esc(title)}</h3><div class="muted small">${body}</div></div>`;
+  const card = (title, body, locked = false, art = "") =>
+    `<div class="card ${locked ? "locked" : ""} ${art ? "with-art" : ""}">${art ? `<div class="card-art">${art}</div>` : ""}<div class="card-body"><h3>${esc(title)}</h3><div class="muted small">${body}</div></div></div>`;
   const content = {
     luanhoi: () => guideLuanHoi(c),
     realms: () =>
@@ -1336,6 +1338,8 @@ async function renderCodex(tab = "luanhoi") {
               ? "Thọ nguyên của người thường."
               : `Thọ nguyên ~${fmt(r.lifespan)} năm · ${r.stages.length} tiểu cảnh giới (${r.stages.join(", ")})${r.tribulation ? " · <b>phải độ thiên kiếp</b>" : ""}${r.immortal ? " · tiên giới" : ""}
                 ${r.wallBase != null ? `<div class="realm-diff"><span>Đột phá vào (cơ bản) <b>${r.wallBase}%</b></span><span>Tốc độ tu luyện <b>${r.speed}%</b> (so với Luyện Khí)</span>${r.storm ? `<span>Thiên kiếp hung <b>×${(r.storm / 100).toFixed(2)}</b></span>` : ""}</div>` : ""}`),
+            false,
+            avatarSvg(i, i % 2 ? "female" : "male", { seed: i, size: 76, animate: false, title: r.name }),
           ),
         )
         .join(""),
@@ -1347,6 +1351,8 @@ async function renderCodex(tab = "luanhoi") {
           card(
             `${p.glyph} ${p.name}`,
             `${esc(p.desc)}<div class="fx-line good">${esc(p.perk)}</div><b>Hợp với:</b> ${esc(PATH_DETAIL[p.id]?.fit ?? "")}<br/><b>Nội dung khảo hạch:</b> ${esc(PATH_DETAIL[p.id]?.topics ?? "")}<div class="origin-fx"><span class="muted">Ngân hàng ${p.questions} câu hỏi</span></div>`,
+            false,
+            pathArt(p.id, p.glyph, 76),
           ),
         )
         .join(""),
@@ -1364,6 +1370,8 @@ async function renderCodex(tab = "luanhoi") {
                   ? `<span class="bad">Không thể tu luyện</span>`
                   : `<span class="${r.score >= 48 ? "good" : ""}">Tốc độ tu luyện ${Math.round(((0.35 + r.score / 100) / base) * 100)}% (so với tam linh căn)</span><span class="good">Đột phá +${Math.round((r.score / 700) * 100)}%</span>`
               }<span class="muted">Điểm ${r.score} · tỉ lệ đầu thai ${Math.round((r.weight / total) * 1000) / 10}%</span></div>`,
+              false,
+              rootArt(r.id, 76),
             ),
           )
           .join("")
@@ -1385,13 +1393,13 @@ async function renderCodex(tab = "luanhoi") {
       return (
         `<p class="muted small">Thể chất là căn cốt nhục thân, bốc ngẫu nhiên lúc đầu thai: ảnh hưởng tốc độ tu luyện, mức chịu thương, tốc độ hồi phục và tỉ lệ đột phá.</p>` +
         c.physiques
-          .map((p) => card(p.name, `${esc(p.desc)}<br/>${PHYSIQUE_LORE[p.id] ?? ""}<div class="origin-fx">${fx(p).map(([t, cls]) => `<span class="${cls}">${esc(t)}</span>`).join("")}<span class="muted">Tỉ lệ đầu thai ${Math.round((p.weight / total) * 1000) / 10}%</span></div>`))
+          .map((p) => card(p.name, `${esc(p.desc)}<br/>${PHYSIQUE_LORE[p.id] ?? ""}<div class="origin-fx">${fx(p).map(([t, cls]) => `<span class="${cls}">${esc(t)}</span>`).join("")}<span class="muted">Tỉ lệ đầu thai ${Math.round((p.weight / total) * 1000) / 10}%</span></div>`, false, bodyArt(p.id, 76)))
           .join("")
       );
     },
     origins: () =>
       `<p class="muted small">Xuất thân được luân hồi bốc ngẫu nhiên lúc đầu thai, quyết định linh tài khởi đầu và một vài lợi thế (hoặc gánh nặng) riêng.</p>` +
-      c.origins.map((o) => card(o.name, `<i>${esc(o.text)}</i><br/>${esc(o.desc)}<div class="origin-fx">${originEffects(o).map((e) => `<span class="${e[1]}">${esc(e[0])}</span>`).join("")}<span class="muted">Tỉ lệ đầu thai ${o.chance}%</span></div>`)).join(""),
+      c.origins.map((o) => card(o.name, `<i>${esc(o.text)}</i><br/>${esc(o.desc)}<div class="origin-fx">${originEffects(o).map((e) => `<span class="${e[1]}">${esc(e[0])}</span>`).join("")}<span class="muted">Tỉ lệ đầu thai ${o.chance}%</span></div>`, false, originArt(o.id, 76))).join(""),
     worlds: () =>
       `<p class="muted small"><b>Cơ duyên</b> nhân thẳng vào tốc độ tu luyện. <b>Hiểm họa</b> nhân vào khả năng gặp tai ương và kết cục xấu khi chọn liều. Giới diện bốc ngẫu nhiên lúc đầu thai; mỗi giới có môn phái riêng.</p>` +
       c.worlds
@@ -1399,6 +1407,8 @@ async function renderCodex(tab = "luanhoi") {
           card(
             w.name,
             `${esc(w.desc)}<br/>${WORLD_LORE[w.id] ?? ""}<div class="origin-fx"><span class="${w.fortune >= 1.1 ? "good" : w.fortune < 1 ? "bad" : ""}">Cơ duyên ×${w.fortune} (tu luyện ${w.fortune >= 1 ? "+" : "−"}${Math.round(Math.abs(w.fortune - 1) * 100)}%)</span><span class="${w.danger <= 0.9 ? "good" : w.danger >= 1.3 ? "bad" : ""}">Hiểm họa ×${w.danger}</span></div><div class="muted small" style="margin-top:6px">Môn phái: ${c.sects.filter((x) => x.world === w.id).map((x) => esc(x.name)).join(", ")}</div>`,
+            false,
+            worldArt(w.id, WORLD_LOOK[w.id]?.glyph ?? "界", WORLD_LOOK[w.id]?.hue ?? 120, 76),
           ),
         )
         .join(""),
