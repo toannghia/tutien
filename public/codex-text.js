@@ -116,5 +116,6 @@ export const PATH_DETAIL = {
 export const SECT_GUIDE = `
   <p><b>Gia nhập:</b> ở Luyện Khí – Trúc Cơ sẽ có <i>lời mời nhập tông</i>: dự khảo hạch 3 câu, đúng từ 2 câu thì được nhận vào một phái của giới diện mình. Xuất thân <i>con nhà tạp dịch tông môn</i> là đệ tử ngay từ đầu.</p>
   <p><b>Quyền lợi:</b> đệ tử tu luyện nhanh hơn 5%, trưởng lão nhanh hơn 15%; lĩnh bổng lộc định kỳ; được nghe giảng (khảo hạch có thưởng), nhận nhiệm vụ, dự đại bỉ tông môn. Tu vi đủ cao có thể được phong trưởng lão.</p>
+  <p><b>Thế mạnh riêng:</b> mỗi phái có một sở trường thật sự trong game (tu luyện nhanh, đột phá dễ, ít bị thương, độ kiếp an toàn, nhiều linh tài, trường thọ, thưởng khảo hạch…) — ghi ngay dưới tên phái. Thế mạnh chỉ có hiệu lực khi ngươi là đệ tử hoặc trưởng lão; bị trục xuất là mất.</p>
   <p><b>Rủi ro:</b> gặp âm mưu trong tông, vu cáo đồng môn bị bại lộ… có thể bị <i>trục xuất</i> — mất mọi quyền lợi.</p>
   <p><b>Chính sự (người chơi thật):</b> đệ tử thắng luận đạo xếp hạng được điểm tỷ võ cho phái (thắng +3, hòa +1). Ghế chưởng môn trống thì mở <i>đại bỉ</i> → 3 người nhiều điểm nhất ứng cử → toàn phái <i>bỏ phiếu</i>. Danh vị gắn với nhân vật của kiếp này — nhân vật tọa hóa thì ghế bỏ trống. <a href="#/sects">Xem các môn phái ›</a></p>`;

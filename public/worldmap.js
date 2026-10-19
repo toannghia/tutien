@@ -562,6 +562,7 @@ export function createWorldMap(host, { data, codex, esc, fmt, realmName, onSelec
     card.innerHTML = `<button class="wm-x" aria-label="Đóng">×</button>
       <div class="muted small">Giới diện</div><h3>${esc(def.name)}</h3>
       <div class="muted small">${esc(def.desc)}</div>
+      ${def.perk ? `<div class="small wm-perk">✦ ${esc(def.perk)}</div>` : ""}
       <div class="wm-kv"><span>Tu sĩ</span><b>${fmt(s?.players ?? 0)}</b><span>Đang tu hành</span><b>${fmt(s?.active ?? 0)}</b><span>Thọ trung bình</span><b>${s?.avgAge ? fmt(s.avgAge) : "—"}</b><span>Cảnh giới cao nhất</span><b>${esc(realmName(s?.topRealm))}</b></div>
       ${top ? `<div class="small">Mạnh nhất: <b>${esc(codex.sects.find((x) => x.id === top.id)?.name ?? "")}</b></div>` : ""}
       ${s?.top?.[0] ? `<div class="small">Cao thủ: <b>${esc(s.top[0].name)}</b> — ${esc(realmName(s.top[0].realm))}</div>` : ""}

@@ -1,13 +1,14 @@
 // Engine mô phỏng tất định: cùng seed + profile + danh sách lựa chọn → luôn ra cùng một kiếp.
 // Máy chủ không tin client: nó chỉ nhận lựa chọn rồi tự dựng lại trạng thái bằng replay().
 
-import { ACHIEVEMENTS, GIVEN_NAMES, ORIGINS, PATHS, PHYSIQUES, REALMS, ROOTS, SECT_VERSION, SECTS, SURNAMES, WORLDS } from "./data";
+import { ACHIEVEMENTS, GIVEN_NAMES, ORIGINS, PATHS, PHYSIQUES, REALMS, ROOTS, SECT_VERSION, SECTS, SURNAMES, WORLDS, type SectFx } from "./data";
 import { BANKS, type Question } from "./quiz";
 import { EVENTS } from "./events";
 import type { Choice, Condition, Effects, GameEvent, Outcome, PartnerStatus, SectStatus, Trial } from "./types";
 
 const PITY_LIMIT = 5;
 export const BALANCE_VERSION = 2;
+const NO_FX: SectFx = {};
 const MAX_TICKS = 20000;
 const REALM_COST = 300; // tổng điểm tu vi của một đại cảnh giới
 const BREAKTHROUGH_ID = "__breakthrough";
@@ -363,13 +364,13 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
       d.cultivation = e.cultivation;
     }
     if (e.health) {
-      const v = e.health < 0 ? Math.round(e.health * body.guard * (s.path === "phat" ? 0.9 : 1)) : e.health;
+      const v = e.health < 0 ? Math.round(e.health * body.guard * (s.path === "phat" ? 0.9 : 1) * (sectFx().guard ?? 1)) : e.health;
       const before = s.health;
       s.health = Math.max(0, Math.min(100, s.health + v));
       d.health = Math.round(s.health - before);
     }
     if (e.resources) {
-      const v = Math.round(e.resources * resourceScale(s.realm));
+      const v = Math.round(e.resources * resourceScale(s.realm) * (e.resources > 0 ? sectFx().resources ?? 1 : 1));
       const before = s.resources;
       s.resources = Math.max(0, s.resources + v);
       d.resources = s.resources - before;
@@ -483,7 +484,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     if (s.endingReason) return;
 
     s.age += tickYears(s.realm) * rng.int(1, 3);
-    s.health = Math.min(100, s.health + 4 * body.regen * (s.path === "tieudao" ? 1.2 : 1));
+    s.health = Math.min(100, s.health + 4 * body.regen * (s.path === "tieudao" ? 1.2 : 1) * (sectFx().regen ?? 1));
 
     if (s.age >= s.lifespan) {
       s.age = s.lifespan;
@@ -520,7 +521,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
       // Cảnh giới càng cao, tu luyện càng chậm
       const pathBonus = s.path === "nguhanh" ? 1.06 : 1;
       const curveSpeed = cfg.realmCurve ? realmDifficulty(cfg.realmCurve, s.realm).speed : 1;
-      s.progress += rng.int(6, 12) * talent * world.fortune * body.speed * sectBonus * pathBonus * cfg.growth * Math.pow(0.86, s.realm - 1) * curveSpeed;
+      s.progress += rng.int(6, 12) * talent * world.fortune * body.speed * sectBonus * pathBonus * cfg.growth * Math.pow(0.86, s.realm - 1) * curveSpeed * (sectFx().speed ?? 1);
       const stages = REALMS[s.realm].stages.length;
       while (s.stage < stages - 1 && s.progress >= (s.stage + 1) * stageCost()) {
         s.stage++;
@@ -600,7 +601,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     const outcome = rng.pick(
       choice.outcomes.map((o) => ({
         ...o,
-        weight: o.weight * (bad(o) ? world.danger * luckMul * (s.path === "dich" ? (bv2 ? 0.85 : 0.9) : 1) * (bv2 && o.effects.death ? 0.55 : 1) : 1),
+        weight: o.weight * (bad(o) ? world.danger * luckMul * (s.path === "dich" ? (bv2 ? 0.85 : 0.9) : 1) * (bv2 && o.effects.death ? 0.55 : 1) * (sectFx().bad ?? 1) : 1),
       })),
     );
     const at = s.facts.length;
@@ -683,7 +684,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
       s.realm++;
       s.stage = 0;
       s.progress = 0;
-      s.lifespan = Math.max(s.lifespan, REALMS[s.realm].lifespan);
+      s.lifespan = Math.max(s.lifespan, REALMS[s.realm].lifespan) + Math.round(REALMS[s.realm].lifespan * (sectFx().lifespan ?? 0));
       log(
         tribulation ? `Độ kiếp thành công · ${to}` : `Đột phá ${to}`,
         tribulation
@@ -703,7 +704,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
       // Công đức hộ thể giảm sát thương thiên lôi; ác nghiệp nặng thì thiên lôi càng hung
       const karmaMul = K ? (s.virtue >= 20 ? 0.75 : 1) * (s.sin >= 20 ? 1.3 : 1) : 1;
       const storm = cfg.realmCurve ? realmDifficulty(cfg.realmCurve, targetNo).storm : 1;
-      const deathChance = Math.min(0.95, cfg.tribulationDeath * (s.health < 60 ? 1.5 : 1) * (body.id === "thunder" ? 0.6 : 1) * karmaMul * storm);
+      const deathChance = Math.min(0.95, cfg.tribulationDeath * (s.health < 60 ? 1.5 : 1) * (body.id === "thunder" ? 0.6 : 1) * karmaMul * storm * (sectFx().tribulation ?? 1));
       if (rng.next() < deathChance) {
         log("Thiên kiếp", `Đạo thiên lôi thứ ${strikesHeld + 1} giáng xuống. Ngươi không đỡ nổi.`, "ending", {
           choice,
@@ -863,8 +864,11 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     if (!s.endingReason) s.facts[at].delta = apply({ lifespan: Math.round(REALMS[s.realm].lifespan * 0.1), comprehension: 5, luck: 5 });
   }
 
-  function inMystic() {
-    return s.sectId === "quychan" && (s.sect === "member" || s.sect === "elder");
+  /** Thế mạnh của phái đang theo (đệ tử / trưởng lão). Kiếp tạo trước phiên bản môn phái 3 chỉ Quy Chân Các có thế mạnh. */
+  function sectFx(): SectFx {
+    if (!s.sectId || (s.sect !== "member" && s.sect !== "elder")) return NO_FX;
+    if ((profile.sv ?? 0) < 3 && s.sectId !== "quychan") return NO_FX;
+    return SECTS.find((x) => x.id === s.sectId)?.fx ?? NO_FX;
   }
 
   function sectName(id: string | null) {
@@ -904,7 +908,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
       ["Linh tài hộ pháp", aid ? 0.1 : 0],
       ["Vấn tâm", s.insight ? 0.1 : 0],
       ["Đạo Luận tu", s.path === "daoluan" ? 0.03 : 0],
-      ["Huyền học Quy Chân", inMystic() ? 0.04 : 0],
+      [`Môn phái · ${sectName(s.sectId)}`, sectFx().breakthrough ?? 0],
       ["Phúc báo tiền kiếp", K ? blessing / 250 : 0],
       ["Nghiệp chướng", K ? -burden / 125 - (s.sin >= 30 ? 0.04 : 0) : 0],
       ["Đường quen (túc tuệ)", K && target <= K.pastBest ? 0.05 : 0],
@@ -1006,9 +1010,9 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     );
     if (ok && cfg.quizReward > 0) {
       // Quy Chân Các: thế mạnh huyền học — thưởng khảo hạch ×1,5 và +1 ngộ tính
-      const mystic = inMystic() ? 1.5 : 1;
-      const reward = Object.fromEntries(Object.entries(pathDef()!.reward).map(([k, v]) => [k, Math.round(Number(v) * cfg.quizReward * mystic)])) as Effects;
-      if (mystic > 1) reward.comprehension = (reward.comprehension ?? 0) + 1;
+      const fx = sectFx();
+      const reward = Object.fromEntries(Object.entries(pathDef()!.reward).map(([k, v]) => [k, Math.round(Number(v) * cfg.quizReward * (fx.quiz ?? 1))])) as Effects;
+      if (fx.comprehension) reward.comprehension = (reward.comprehension ?? 0) + fx.comprehension;
       s.facts[at].delta = apply(reward);
     }
     return ok;

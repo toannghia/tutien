@@ -149,7 +149,59 @@ export const WORLDS = [
   { id: "shattered", name: "Tàn Thiên Giới", danger: 1.4, fortune: 0.9, desc: "Thiên địa rạn vỡ, không gian bất ổn, mất mạng chỉ trong chớp mắt." },
 ];
 
-export type Sect = { id: string; world: string; name: string; glyph: string; desc: string; since: number; perk: string };
+// Thế mạnh môn phái (áp khi là đệ tử/trưởng lão, kiếp tạo từ phiên bản môn phái 3):
+// speed: hệ số tu luyện · guard: hệ số thương tích nhận vào · regen: hệ số hồi phục · breakthrough: cộng tỉ lệ đột phá
+// tribulation: hệ số nguy cơ chết khi độ kiếp · bad: hệ số khả năng gặp kết cục xấu · quiz: hệ số thưởng khảo hạch
+// resources: hệ số linh tài nhận được · lifespan: % thọ nguyên của cảnh giới mới cộng thêm mỗi lần đột phá thành công
+export type SectFx = { speed?: number; guard?: number; regen?: number; breakthrough?: number; tribulation?: number; bad?: number; quiz?: number; resources?: number; lifespan?: number; comprehension?: number };
+export type Sect = { id: string; world: string; name: string; glyph: string; desc: string; since: number; perk: string; fx: SectFx };
+
+const pctTxt = (x: number) => `${Math.round(Math.abs(x) * 100)}%`;
+/** Mô tả thế mạnh sinh từ số liệu — chữ luôn khớp luật. */
+export function sectPerkText(fx: SectFx): string {
+  const t: string[] = [];
+  if (fx.speed) t.push(`tu luyện ${fx.speed > 1 ? "nhanh" : "chậm"} hơn ${pctTxt(fx.speed - 1)}`);
+  if (fx.breakthrough) t.push(`đột phá ${fx.breakthrough > 0 ? "+" : "−"}${pctTxt(fx.breakthrough)}`);
+  if (fx.quiz) t.push(`thưởng khảo hạch ×${String(fx.quiz).replace(".", ",")}`);
+  if (fx.comprehension) t.push(`mỗi câu khảo hạch đúng +${fx.comprehension} ngộ tính`);
+  if (fx.guard) t.push(`thương tích ${fx.guard < 1 ? "giảm" : "tăng"} ${pctTxt(fx.guard - 1)}`);
+  if (fx.regen) t.push(`hồi phục thể trạng ${fx.regen > 1 ? "nhanh" : "chậm"} hơn ${pctTxt(fx.regen - 1)}`);
+  if (fx.tribulation) t.push(`nguy cơ chết khi độ kiếp ${fx.tribulation < 1 ? "giảm" : "tăng"} ${pctTxt(fx.tribulation - 1)}`);
+  if (fx.bad) t.push(`${fx.bad < 1 ? "ít" : "dễ"} gặp kết cục xấu ${fx.bad < 1 ? "hơn" : "hơn"} ${pctTxt(fx.bad - 1)}`);
+  if (fx.resources) t.push(`linh tài nhận được +${pctTxt(fx.resources - 1)}`);
+  if (fx.lifespan) t.push(`mỗi lần đột phá thêm ${pctTxt(fx.lifespan)} thọ nguyên`);
+  const s = t.join("; ");
+  return s ? s[0].toUpperCase() + s.slice(1) + "." : "";
+}
+
+// Thế mạnh từng phái — giá trị cân nhau, mỗi phái một lối chơi
+const SECT_FX: Record<string, SectFx> = {
+  thanhvan: { breakthrough: 0.03, bad: 0.95 }, // kiếm tu chính đạo: căn cơ vững
+  bachthao: { regen: 1.3, resources: 1.1 }, // luyện đan: hồi phục, đan dược
+  vanha: { quiz: 1.3, breakthrough: 0.01 }, // thư viện: kinh điển, luận đạo
+  linhtieu: { speed: 1.08 }, // linh mạch lớn nhất giới
+  vanlinh: { resources: 1.25 }, // đệ tử đông, tài nguyên dồi dào
+  tutruc: { lifespan: 0.03, regen: 1.1 }, // tu tâm dưỡng tính: trường thọ
+  thienkiem: { speed: 1.05, bad: 0.92, guard: 1.1 }, // lấy chiến dưỡng chiến: liều mà lợi, nhưng chịu đòn nặng
+  chienthan: { guard: 0.8 }, // luyện thể thành thần
+  huyenco: { tribulation: 0.8 }, // trận pháp hộ kiếp
+  manhoang: { guard: 0.85, regen: 1.15 }, // thân thể cứng như sắt
+  ngthu: { bad: 0.88 }, // yêu thú hộ chủ
+  huyetlang: { resources: 1.2, guard: 0.95 }, // săn yêu đổi linh tài
+  codao: { speed: 1.1 }, // giữ lửa tu hành thời mạt pháp: bù linh khí cạn
+  tannguyet: { regen: 1.2, tribulation: 0.9 }, // tịnh pháp
+  thukinh: { quiz: 1.25, breakthrough: 0.02 }, // kinh thư thượng cổ
+  antien: { bad: 0.85 }, // ẩn trong mây, ít gặp hiểm
+  bonglai: { resources: 1.15, lifespan: 0.025 }, // tiên đảo đầy cơ duyên
+  tieudao: { regen: 1.25, bad: 0.95 }, // tự tại tiêu dao
+  quychan: { quiz: 1.5, comprehension: 1, breakthrough: 0.04 }, // huyền học
+  huyetma: { speed: 1.12, tribulation: 1.15 }, // lấy huyết luyện công: tiến nhanh, kiếp nạn nặng
+  uminh: { lifespan: 0.05, regen: 0.9 }, // quỷ đạo: thọ nguyên dài, thân âm lạnh
+  chinhkhi: { tribulation: 0.85, bad: 0.95 }, // chính khí hộ thân
+  bothien: { tribulation: 0.75 }, // vá trời: am hiểu thiên đạo
+  hukhong: { guard: 0.85, regen: 1.1 }, // chùa giữa hư không
+  tinhha: { breakthrough: 0.04 }, // kiếm khí chém nát hư không
+};
 
 // Môn phái: mỗi giới diện 3 phái. Được tông môn nhận thì vào một phái của giới mình.
 export const SECTS: Sect[] = (
@@ -179,16 +231,22 @@ export const SECTS: Sect[] = (
     ["hukhong", "shattered", "Hư Không Tự", "空", "Ngôi chùa trôi giữa các mảnh không gian."],
     ["tinhha", "shattered", "Tinh Hà Kiếm Phái", "星", "Kiếm khí như dải ngân hà, chém nát hư không."],
   ] as const
-).map(([id, world, name, glyph, desc]): Sect => ({ id, world, name, glyph, desc, since: 0, perk: "" }));
+).map(([id, world, name, glyph, desc]): Sect => ({ id, world, name, glyph, desc, since: 0, perk: "", fx: {} }));
 
 // Phái thêm sau: chỉ kiếp tạo từ phiên bản môn phái `since` trở đi mới được nhận vào (kiếp cũ giữ nguyên phái khi phát lại)
 SECTS.push({
   id: "quychan", world: "hidden", name: "Quy Chân Các", glyph: "玄",
   desc: "Các lâu ẩn giữa mây mù, chuyên tinh huyền học: dịch lý, ngũ hành, phong thủy, mệnh lý — lấy hiểu đạo làm gốc tu hành.",
   since: 2,
-  perk: "Thế mạnh huyền học: mỗi câu khảo hạch đúng nhận thưởng ×1,5 và +1 ngộ tính; đột phá +4%.",
+  perk: "",
+  fx: {},
 });
-export const SECT_VERSION = 2;
+for (const x of SECTS) {
+  x.fx = SECT_FX[x.id] ?? {};
+  x.perk = sectPerkText(x.fx);
+}
+// 3: mọi môn phái có thế mạnh riêng (kiếp tạo trước đó chỉ Quy Chân Các có)
+export const SECT_VERSION = 3;
 
 export type AchievementCtx = { realm: number; age: number; flags: string[]; endingReason: string; ascended: boolean; died: boolean; rootless: boolean };
 

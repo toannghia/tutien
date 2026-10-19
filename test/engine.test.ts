@@ -292,3 +292,35 @@ describe("cân bằng rủi ro (bản 2)", () => {
     expect(factorsOf(false).has("Đạo tâm thiếu tôi luyện")).toBe(true);
   });
 });
+
+describe("thế mạnh môn phái", () => {
+  it("mọi phái có thế mạnh và mô tả sinh từ số liệu", async () => {
+    const { SECTS } = await import("../src/game/data");
+    for (const x of SECTS) {
+      expect(Object.keys(x.fx).length).toBeGreaterThan(0);
+      expect(x.perk.length).toBeGreaterThan(5);
+    }
+  });
+  it("kiếp mới (sv=3) nhận thế mạnh phái; kiếp cũ (sv=2) thì không, trừ Quy Chân Các", () => {
+    let seen3 = false, seen2 = false;
+    for (let seed = 1; seed <= 60 && !(seen3 && seen2); seed++) {
+      for (const sv of [3, 2]) {
+        const p = createProfile(seed, 0);
+        p.sv = sv;
+        const ch: ChoiceInput[] = [];
+        let s = replay(seed, p, ch);
+        while (s.pending) {
+          if (s.pending.kind === "breakthrough" && s.sectId && s.sectId !== "quychan" && s.sect === "member") {
+            const has = s.pending.factors?.some((f) => f.label.startsWith("Môn phái"));
+            if (sv === 3 && has) seen3 = true;
+            if (sv === 2) { expect(has).toBeFalsy(); seen2 = true; }
+          }
+          const o = s.pending.options.find((x) => x.id === "join") ?? s.pending.options[0];
+          ch.push({ eventId: s.pending.eventId, choiceId: o.id });
+          s = replay(seed, p, ch);
+        }
+      }
+    }
+    expect(seen3).toBe(true);
+  });
+});

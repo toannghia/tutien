@@ -2619,6 +2619,7 @@ async function renderSects() {
           <span class="sflag">${flagSvg(s.id, d?.glyph ?? "", { size: 46, wave: false, title: `Cờ ${d?.name ?? ""}` })}</span>
           <div class="main"><div class="title">${esc(d?.name ?? s.id)}${s.id === mySect ? ' <span class="crown">phái của ngươi</span>' : ""}</div>
             <div class="sub">${esc(byId(c.worlds, d?.world)?.name ?? "")} · ${fmt(s.disciples)} đệ tử tại thế</div>
+            ${d?.perk ? `<div class="sub sect-perk-line">✦ ${esc(d.perk)}</div>` : ""}
             <div class="sub">${s.chief ? `掌 <b>${esc(s.chief.name)}</b> — ${esc(realmOf(s.chief.realm))}` : `<span class="phase-tag ${s.phase}">${PHASE[s.phase] || "Ghế trống"}</span> còn ${timeLeft(s.phaseEnds)}`}</div>
             <div class="power"><i style="width:${(s.points / max) * 100}%"></i></div></div>
           <div class="sect-power"><b>${fmt(s.points)}</b><small>điểm tỷ võ</small></div></a>`;

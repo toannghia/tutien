@@ -878,3 +878,4 @@ button, a, .option { touch-action: manipulation; -webkit-tap-highlight-color: tr
 .dead-note { font-size: 13px; color: var(--danger); padding: 4px 0 2px; }
 @media (max-width: 900px) { .sheet .who .fate-badge { grid-area: badge; justify-self: end; margin: 2px 0 0; font-size: 11px; white-space: nowrap; } }
 .sub.owner b { color: var(--ink-2); font-weight: 500; }
+.sect-perk-line { color: var(--gold) !important; } .wm-perk { color: #8a6a1e; margin: 4px 0; }
