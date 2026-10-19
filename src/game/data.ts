@@ -154,7 +154,9 @@ export const WORLDS = [
 // tribulation: hệ số nguy cơ chết khi độ kiếp · bad: hệ số khả năng gặp kết cục xấu · quiz: hệ số thưởng khảo hạch
 // resources: hệ số linh tài nhận được · lifespan: % thọ nguyên của cảnh giới mới cộng thêm mỗi lần đột phá thành công
 export type SectFx = { speed?: number; guard?: number; regen?: number; breakthrough?: number; tribulation?: number; bad?: number; quiz?: number; resources?: number; lifespan?: number; comprehension?: number };
-export type Sect = { id: string; world: string; name: string; glyph: string; desc: string; since: number; perk: string; fx: SectFx };
+// exam: số câu (trên 3) phải đúng khi khảo hạch nhập môn · align: chính đạo / trung lập / ma đạo (quyết định có nhận phản đồ, người nặng ác nghiệp)
+export type SectAlign = "chinh" | "trung" | "ta";
+export type Sect = { id: string; world: string; name: string; glyph: string; desc: string; since: number; perk: string; fx: SectFx; exam: number; align: SectAlign };
 
 const pctTxt = (x: number) => `${Math.round(Math.abs(x) * 100)}%`;
 /** Mô tả thế mạnh sinh từ số liệu — chữ luôn khớp luật. */
@@ -231,7 +233,7 @@ export const SECTS: Sect[] = (
     ["hukhong", "shattered", "Hư Không Tự", "空", "Ngôi chùa trôi giữa các mảnh không gian."],
     ["tinhha", "shattered", "Tinh Hà Kiếm Phái", "星", "Kiếm khí như dải ngân hà, chém nát hư không."],
   ] as const
-).map(([id, world, name, glyph, desc]): Sect => ({ id, world, name, glyph, desc, since: 0, perk: "", fx: {} }));
+).map(([id, world, name, glyph, desc]): Sect => ({ id, world, name, glyph, desc, since: 0, perk: "", fx: {}, exam: 2, align: "trung" }));
 
 // Phái thêm sau: chỉ kiếp tạo từ phiên bản môn phái `since` trở đi mới được nhận vào (kiếp cũ giữ nguyên phái khi phát lại)
 SECTS.push({
@@ -240,13 +242,27 @@ SECTS.push({
   since: 2,
   perk: "",
   fx: {},
+  exam: 2,
+  align: "chinh",
 });
+// Đại tông môn: khảo hạch nhập môn phải đúng cả 3 câu
+const HARD_EXAM = new Set(["thanhvan", "linhtieu", "huyenco", "ngthu", "thukinh", "quychan", "huyetma", "bothien"]);
+const ALIGN: Record<string, SectAlign> = {
+  thanhvan: "chinh", bachthao: "chinh", vanha: "chinh", tutruc: "chinh", codao: "chinh", tannguyet: "chinh", chinhkhi: "chinh", hukhong: "chinh", bothien: "chinh", quychan: "chinh", antien: "chinh",
+  huyetma: "ta", uminh: "ta", huyetlang: "ta",
+};
 for (const x of SECTS) {
   x.fx = SECT_FX[x.id] ?? {};
   x.perk = sectPerkText(x.fx);
+  x.exam = HARD_EXAM.has(x.id) ? 3 : 2;
+  x.align = ALIGN[x.id] ?? "trung";
 }
+export const ALIGN_NAME: Record<SectAlign, string> = { chinh: "Chính đạo", trung: "Trung lập", ta: "Ma đạo" };
+/** Phái có nhận người này không (theo ác nghiệp): chính đạo từ chối kẻ nặng ác nghiệp, ma đạo thì hoan nghênh. */
+export const sectAccepts = (x: Sect, sin: number) => (x.align === "chinh" ? sin < 15 : x.align === "trung" ? sin < 30 : true);
 // 3: mọi môn phái có thế mạnh riêng (kiếp tạo trước đó chỉ Quy Chân Các có)
-export const SECT_VERSION = 3;
+// 4: tự chọn phái khi nhập môn, chiêu mộ / phản xuất sư môn, thu nhận phản đồ, tiền duyên sư môn
+export const SECT_VERSION = 4;
 
 export type AchievementCtx = { realm: number; age: number; flags: string[]; endingReason: string; ascended: boolean; died: boolean; rootless: boolean };
 

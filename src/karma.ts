@@ -3,7 +3,7 @@
 import { GIVEN_NAMES, REALMS, SURNAMES } from "./game/data";
 import type { Karma, Profile, RunState } from "./game/engine";
 
-type PastRun = { id: string; number: number; seed: number; status: string; best_realm: number; ending_reason: string | null; profile_json: string; karma_json: string | null };
+type PastRun = { id: string; number: number; seed: number; status: string; best_realm: number; ending_reason: string | null; profile_json: string; karma_json: string | null; world?: string; sect_id?: string | null; sect_rank?: string | null };
 type RunKarma = { v: number; s: number; partner: string; res: number; realm: number };
 
 const DECAY = 0.5; // mỗi kiếp nghiệp lực cũ phai một nửa
@@ -17,7 +17,7 @@ const hashName = (seed: number, salt: number, gender: "male" | "female") => {
 };
 
 /** Tính nhân quả từ các kiếp đã khép lại (mới nhất trước). Thuần — dùng chung cho tạo kiếp và Sổ Sinh Tử. */
-export function computeKarma(past: PastRun[], legacy: Karma["legacy"] | null): Karma {
+export function computeKarma(past: PastRun[], legacy: Karma["legacy"] | null, chiefRuns: Set<string> = new Set()): Karma {
   const k: Karma = { v: 0, s: 0, insight: 0, pastBest: 0 };
   // Nghiệp lực: cộng dồn từ cũ đến mới, mỗi kiếp suy giảm một nửa.
   // Luân hồi sớm không xóa được ác nghiệp, nhưng thiện nghiệp chỉ tính khi đi hết một đời.
@@ -55,13 +55,17 @@ export function computeKarma(past: PastRun[], legacy: Karma["legacy"] | null): K
     // Oan gia: kiếp trước gây ác nghiệp nặng
     if ((lk?.s ?? 0) >= 25) k.feud = { name: hashName(last.seed, 0xfe0d, (last.seed & 1) === 0 ? "male" : "female") };
   }
+  // Tiền duyên sư môn: kiếp gần nhất từng là chưởng môn hoặc trưởng lão
+  if (last?.sect_id && last.world && (chiefRuns.has(last.id) || last.sect_rank === "elder")) {
+    k.sectBond = { sectId: last.sect_id, world: last.world, rank: chiefRuns.has(last.id) ? "chief" : "elder" };
+  }
   if (legacy) k.legacy = legacy;
   return k;
 }
 
 async function loadPast(db: D1Database, userId: string) {
   const { results } = await db
-    .prepare(`SELECT id, number, seed, status, best_realm, ending_reason, profile_json, karma_json FROM runs
+    .prepare(`SELECT id, number, seed, status, best_realm, ending_reason, profile_json, karma_json, world, sect_id, sect_rank FROM runs
               WHERE user_id = ? AND status != 'active' ORDER BY number DESC LIMIT 8`)
     .bind(userId).all<PastRun>();
   return results;
@@ -77,7 +81,10 @@ async function openLegacy(db: D1Database, userId: string): Promise<Karma["legacy
 /** Nhân quả cho kiếp sắp tạo. */
 export async function inheritKarma(db: D1Database, userId: string): Promise<Karma> {
   const [past, legacy] = await Promise.all([loadPast(db, userId), openLegacy(db, userId)]);
-  return computeKarma(past, legacy);
+  const chief = past[0]
+    ? await db.prepare("SELECT 1 FROM sect_leaders WHERE run_id = ? LIMIT 1").bind(past[0].id).first().catch(() => null)
+    : null;
+  return computeKarma(past, legacy, chief && past[0] ? new Set([past[0].id]) : new Set());
 }
 
 /** Ghi nghiệp lực của kiếp + xử lý động phủ. Gọi trong saveProgress. */

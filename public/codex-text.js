@@ -114,8 +114,15 @@ export const PATH_DETAIL = {
 
 // Hướng dẫn chung về môn phái (hiện đầu tab Môn phái)
 export const SECT_GUIDE = `
-  <p><b>Gia nhập:</b> ở Luyện Khí – Trúc Cơ sẽ có <i>lời mời nhập tông</i>: dự khảo hạch 3 câu, đúng từ 2 câu thì được nhận vào một phái của giới diện mình. Xuất thân <i>con nhà tạp dịch tông môn</i> là đệ tử ngay từ đầu.</p>
-  <p><b>Quyền lợi:</b> đệ tử tu luyện nhanh hơn 5%, trưởng lão nhanh hơn 15%; lĩnh bổng lộc định kỳ; được nghe giảng (khảo hạch có thưởng), nhận nhiệm vụ, dự đại bỉ tông môn. Tu vi đủ cao có thể được phong trưởng lão.</p>
+  <p><b>Gia nhập — tự chọn sơn môn:</b> ở Luyện Khí – Trúc Cơ sẽ có <i>kỳ thu nhận đệ tử</i>. Ngươi xem thế mạnh từng phái của giới diện mình rồi chọn phái muốn bái nhập. Mỗi phái khảo hạch 3 câu: phái thường cần đúng <b>2/3</b>, <b>đại tông</b> (Thanh Vân Tông, Linh Tiêu Bảo Điện, Huyền Cơ Các, Ngự Thú Tông, Thủ Kinh Các, Quy Chân Các, Huyết Ma Giáo, Bổ Thiên Các) cần đúng cả <b>3/3</b>. Trượt thì xuống núi, lần thu nhận sau có thể chọn lại. Chỉ chọn được phái trong giới diện mình sinh ra. Xuất thân <i>con nhà tạp dịch tông môn</i> là đệ tử từ đầu.</p>
   <p><b>Thế mạnh riêng:</b> mỗi phái có một sở trường thật sự trong game (tu luyện nhanh, đột phá dễ, ít bị thương, độ kiếp an toàn, nhiều linh tài, trường thọ, thưởng khảo hạch…) — ghi ngay dưới tên phái. Thế mạnh chỉ có hiệu lực khi ngươi là đệ tử hoặc trưởng lão; bị trục xuất là mất.</p>
-  <p><b>Rủi ro:</b> gặp âm mưu trong tông, vu cáo đồng môn bị bại lộ… có thể bị <i>trục xuất</i> — mất mọi quyền lợi.</p>
+  <p><b>Quyền lợi:</b> đệ tử tu luyện nhanh hơn 5%, trưởng lão nhanh hơn 15%; lĩnh bổng lộc định kỳ; được nghe giảng (khảo hạch có thưởng), nhận nhiệm vụ, dự đại bỉ tông môn. Tu vi đủ cao có thể được phong trưởng lão.</p>
+  <p><b>Đổi phái — không tự do, phải trả giá:</b></p>
+  <ul>
+    <li><b>Lời chiêu mộ:</b> từ Nguyên Anh, phái khác cùng giới có thể bí mật lôi kéo. <i>Phản xuất sư môn</i> để theo về: mất chức trưởng lão (nếu có), +5 ác nghiệp, và về sau sư môn cũ sẽ <b>truy sát</b> (liều chết hoặc quỳ xin tha, mất linh tài và tu vi). <i>Ở lại</i>: thiện nghiệp, khí vận, được thưởng.</li>
+    <li><b>Thu nhận phản đồ:</b> bị trục xuất vẫn có cơ hội được phái khác nhận làm <i>đệ tử ký danh</i>. Phái <b>chính đạo</b> không nhận người có từ 15 ác nghiệp, phái trung lập từ chối người từ 30 ác nghiệp, còn <b>ma đạo</b> (Huyết Ma Giáo, U Minh Điện, Huyết Lang Trại) nhận tất cả — kẻ nặng ác nghiệp còn được ma đạo để mắt trước.</li>
+    <li><b>Chức vị không theo người đổi phái:</b> rời phái là mất điểm tỷ võ và ghế chưởng môn (nếu có).</li>
+  </ul>
+  <p><b>Tiền duyên sư môn:</b> kiếp trước là <b>trưởng lão hoặc chưởng môn</b> của phái nào, kiếp sau nếu sinh cùng giới diện, phái ấy sẽ tìm đến mời về — không cần khảo hạch. Muốn đi đường khác thì cứ từ chối.</p>
+  <p><b>Rủi ro:</b> gặp âm mưu trong tông, vu cáo đồng môn bị bại lộ… có thể bị <i>trục xuất</i>.</p>
   <p><b>Chính sự (người chơi thật):</b> đệ tử thắng luận đạo xếp hạng được điểm tỷ võ cho phái (thắng +3, hòa +1). Ghế chưởng môn trống thì mở <i>đại bỉ</i> → 3 người nhiều điểm nhất ứng cử → toàn phái <i>bỏ phiếu</i>. Danh vị gắn với nhân vật của kiếp này — nhân vật tọa hóa thì ghế bỏ trống. <a href="#/sects">Xem các môn phái ›</a></p>`;

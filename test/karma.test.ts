@@ -69,3 +69,41 @@ describe("nhân quả: trong kiếp", () => {
     expect(ok).toBe(true);
   });
 });
+
+describe("môn phái bản 4", () => {
+  const playAll = (sv: number, karma: any, prefer: string[], seeds = 80) => {
+    const flags = new Set<string>();
+    const events = new Set<string>();
+    for (let seed = 1; seed <= seeds; seed++) {
+      const p = createProfile(seed, 0);
+      p.sv = sv;
+      p.karma = karma;
+      const ch: ChoiceInput[] = [];
+      let s = replay(seed, p, ch);
+      for (let i = 0; i < 3000 && s.pending; i++) {
+        events.add(s.pending.eventId);
+        const o = prefer.map((id) => s.pending!.options.find((x) => x.id === id)).find(Boolean) ?? s.pending.options.find((x) => x.id !== "skip")!;
+        ch.push({ eventId: s.pending.eventId, choiceId: o.id });
+        s = replay(seed, p, ch);
+      }
+      s.flags.forEach((f) => flags.add(f));
+    }
+    return { flags, events };
+  };
+  const K0 = { v: 0, s: 0, insight: 0, pastBest: 0 };
+  it("tự chọn phái khi nhập môn, có chiêu mộ / truy sát / thu nhận phản đồ", () => {
+    const { flags, events } = playAll(4, K0, ["join", "defect", "fight", "expose"]);
+    expect(events.has("__sect_pick")).toBe(true);
+    expect(events.has("__recruit")).toBe(true);
+    expect(flags.has("defected")).toBe(true);
+    expect(events.has("__hunted")).toBe(true);
+  });
+  it("tiền duyên sư môn: kiếp trước là trưởng lão → phái cũ tìm đến", () => {
+    const { flags } = playAll(4, { ...K0, sectBond: { sectId: "thanhvan", world: "peaceful", rank: "elder" } }, ["return"], 60);
+    expect(flags.has("sect_rebond")).toBe(true);
+  });
+  it("kiếp bản 3 không có các sự kiện mới", () => {
+    const { events } = playAll(3, K0, ["join", "defect"], 40);
+    expect([...events].some((e) => ["__sect_pick", "__recruit", "__hunted", "__adopt", "__sect_bond"].includes(e))).toBe(false);
+  });
+});

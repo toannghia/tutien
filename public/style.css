@@ -879,3 +879,8 @@ button, a, .option { touch-action: manipulation; -webkit-tap-highlight-color: tr
 @media (max-width: 900px) { .sheet .who .fate-badge { grid-area: badge; justify-self: end; margin: 2px 0 0; font-size: 11px; white-space: nowrap; } }
 .sub.owner b { color: var(--ink-2); font-weight: 500; }
 .sect-perk-line { color: var(--gold) !important; } .wm-perk { color: #8a6a1e; margin: 4px 0; }
+.sect-tags { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; font-size: 12px; color: var(--muted); }
+.sect-tags > span { border: 1px solid var(--line); border-radius: 99px; padding: 0 8px; }
+.sect-tags .align.chinh { color: var(--good); border-color: color-mix(in srgb, var(--good) 45%, transparent); }
+.sect-tags .align.ta { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 45%, transparent); }
+.guide-card ul { margin: 0 0 8px; padding-left: 20px; color: var(--ink-2); line-height: 1.6; font-size: 14px; }

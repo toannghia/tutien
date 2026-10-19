@@ -115,6 +115,7 @@ Mọi danh vị gắn với **nhân vật của kiếp đang chơi**, không ph�
 - **Quyền chưởng môn:** lời hiệu triệu (≤120 ký tự, chặn link và lời thô tục; admin gỡ được), tên trên Vạn Giới Đồ, danh xưng "Chưởng môn …" trong luận đạo.
 - **Admin** (tab Môn phái): chuyển vòng ngay, bãi nhiệm, gỡ lời hiệu triệu. Thời gian các giai đoạn chỉnh trong Cấu hình chỉ số.
 - **Thế mạnh môn phái:** mỗi phái có `fx` riêng trong `src/game/data.ts` (tu luyện, đột phá, thương tích, hồi phục, độ kiếp, kết cục xấu, thưởng khảo hạch, linh tài, thọ nguyên); mô tả `perk` sinh tự động từ số liệu. Chỉ áp cho kiếp có `profile.sv ≥ 3` (Quy Chân Các từ bản 2).
+- **Chọn & đổi môn phái (bản môn phái 4, `profile.sv ≥ 4`):** kỳ thu nhận đệ tử cho tự chọn phái trong giới diện (đại tông khảo hạch 3/3, phái thường 2/3); từ Nguyên Anh có *lời chiêu mộ* (phản xuất sư môn: mất chức, +ác nghiệp, sau đó bị sư môn cũ truy sát); bị trục xuất có thể được phái khác nhận làm đệ tử ký danh (chính đạo từ chối người ≥15 ác nghiệp, trung lập ≥30, ma đạo nhận tất); *tiền duyên sư môn*: kiếp trước là trưởng lão/chưởng môn thì phái cũ (cùng giới) mời về không cần khảo hạch.
 - **Cờ môn phái:** `public/banner.js` vẽ cờ đuôi nheo SVG cho từng phái (màu, hoa văn, chữ hiệu riêng), hiện ở trang phái, bảng xếp hạng, cẩm nang và cắm cạnh tông môn trên Vạn Giới Đồ.
 - Code: `src/sect.ts` (luật), `src/sect-api.ts` (API), migration `0007_sect_politics.sql`.
 

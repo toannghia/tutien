@@ -1324,6 +1324,8 @@ async function renderRank(by = "realm") {
 
 // ---------------------------------------------------------------- Cẩm nang
 
+const ALIGN_LABEL = { chinh: "Chính đạo", trung: "Trung lập", ta: "Ma đạo" };
+
 // Hiệu ứng của một xuất thân: [chữ, lớp màu]
 function originEffects(o) {
   const out = [[`Linh tài khởi đầu ${o.resources}`, ""]];
@@ -1358,6 +1360,7 @@ function guideLuanHoi(c) {
       <li><b>Chấp niệm:</b> gục ngã ở cảnh giới nào (thiên kiếp, đột phá thất bại, hết thọ), kiếp sau mang chấp niệm: +5% khi thử lại; vượt qua thì chấp niệm tiêu tan — thưởng thọ nguyên, ngộ tính, khí vận.</li>
       <li><b>Tiền duyên:</b> kiếp trước có đạo lữ thì kiếp sau sẽ gặp lại <i>cố nhân</i> — nối duyên hay để duyên trôi là tùy ngươi.</li>
       <li><b>Oan gia:</b> gây ác nghiệp nặng (≥ 25) thì kiếp sau nạn nhân tìm đến đòi nợ: chuộc lỗi, nghênh chiến, hoặc (Phật tu) siêu độ.</li></ul>`)}
+    ${sec("門", "Tiền duyên sư môn", `<p>Kiếp trước là <b>trưởng lão hoặc chưởng môn</b> của phái nào, kiếp sau nếu sinh cùng giới diện thì phái ấy sẽ tìm đến mời về, không cần khảo hạch. Xem thêm cách chọn và đổi môn phái ở tab <b>Môn phái</b>.</p>`)}
     ${sec("心", "Đạo tâm & rủi ro", `<p>Dám chọn phương án có hiểm nguy mà sống sót thì được <b>lịch luyện</b>: thêm tu vi và +1% đột phá mỗi lần (tối đa +5%). Né tránh mãi thì <b>đạo tâm thiếu tôi luyện</b> (−4% đột phá). Khí vận giúp tránh họa và đột phá dễ hơn, nhưng không thay được bản lĩnh.</p>`)}
     ${sec("峰", "Càng cao càng khó", `<p>Bình cảnh dày dần, tu luyện chậm dần, thiên kiếp hung dần theo cảnh giới (xem tab Cảnh giới). Đỉnh cao thường cần nhiều kiếp: hãy tích thiện, để lại động phủ, nuôi túc tuệ cho kiếp sau.</p>`)}
     ${sec("冊", "Sổ Sinh Tử", `<p>Mọi kiếp được ghi lại cùng nghiệp lực, những gì nhận vào và để lại, và nhân quả đang chờ kiếp sau. <a href="#/history">Mở Sổ Sinh Tử ›</a></p>`)}
@@ -1387,7 +1390,7 @@ async function renderCodex(tab = "luanhoi") {
           ),
         )
         .join(""),
-    sects: () => `<div class="card guide-card">${SECT_GUIDE}</div>` + c.worlds.map((w) => `<div class="card"><h3>${esc(w.name)}</h3>${c.sects.filter((x) => x.world === w.id).map((x) => `<div class="kv codex-sect"><span class="sflag">${flagSvg(x.id, x.glyph, { size: 40, wave: false })}</span><span class="k">${esc(x.name)}</span></div><div class="muted small" style="margin-bottom:6px">${esc(x.desc)}${x.perk ? `<br><span class="sect-perk">✦ ${esc(x.perk)}</span>` : ""}</div>`).join("")}</div>`).join(""),
+    sects: () => `<div class="card guide-card">${SECT_GUIDE}</div>` + c.worlds.map((w) => `<div class="card"><h3>${esc(w.name)}</h3>${c.sects.filter((x) => x.world === w.id).map((x) => `<div class="kv codex-sect"><span class="sflag">${flagSvg(x.id, x.glyph, { size: 40, wave: false })}</span><span class="k">${esc(x.name)}</span></div><div class="muted small" style="margin-bottom:6px">${esc(x.desc)}${x.perk ? `<br><span class="sect-perk">✦ ${esc(x.perk)}</span>` : ""}<br><span class="sect-tags"><span class="align ${x.align}">${ALIGN_LABEL[x.align] ?? ""}</span><span>${x.exam >= 3 ? "Đại tông · khảo hạch 3/3" : "Khảo hạch 2/3"}</span></span></div>`).join("")}</div>`).join(""),
     paths: () =>
       `<p class="muted small">Đạo đồ chọn một lần khi linh căn thức tỉnh và theo ngươi suốt kiếp. Mỗi câu khảo hạch trả lời đúng đều có thưởng theo đạo đồ; khảo hạch xuất hiện khi nhập môn, ở giảng đường tông môn, trước mỗi bình cảnh (vấn tâm: đúng thì +10% đột phá) và khi gặp kỳ nhân. Câu đã gặp sẽ được nhắc lại theo đường cong quên lãng.</p>` +
       c.paths
@@ -2680,7 +2683,8 @@ async function renderSect(id) {
     <p><a href="#/sects" class="muted small">‹ Môn phái</a></p>
     <div class="wd-head"><span class="sflag big">${flagSvg(id, d?.glyph ?? "", { size: 110, title: `Cờ ${d?.name ?? ""}` })}</span><div><h1>${esc(d?.name ?? id)}</h1>
       <div class="muted small">${esc(byId(c.worlds, d?.world)?.name ?? "")} · ${esc(d?.desc ?? "")} · ${fmt(s.disciples)} đệ tử tại thế</div>
-      ${d?.perk ? `<div class="sect-perk">✦ ${esc(d.perk)}</div>` : ""}</div></div>
+      ${d?.perk ? `<div class="sect-perk">✦ ${esc(d.perk)}</div>` : ""}
+      <div class="sect-tags"><span class="align ${d?.align}">${ALIGN_LABEL[d?.align] ?? ""}</span><span>${d?.exam >= 3 ? "Đại tông · khảo hạch nhập môn đúng 3/3" : "Khảo hạch nhập môn đúng 2/3"}</span></div></div></div>
     ${myStatus}
     ${stage}
     <h3>Bảng tỷ võ</h3>

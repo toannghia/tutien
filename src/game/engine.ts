@@ -1,7 +1,7 @@
 // Engine mô phỏng tất định: cùng seed + profile + danh sách lựa chọn → luôn ra cùng một kiếp.
 // Máy chủ không tin client: nó chỉ nhận lựa chọn rồi tự dựng lại trạng thái bằng replay().
 
-import { ACHIEVEMENTS, GIVEN_NAMES, ORIGINS, PATHS, PHYSIQUES, REALMS, ROOTS, SECT_VERSION, SECTS, SURNAMES, WORLDS, type SectFx } from "./data";
+import { ACHIEVEMENTS, ALIGN_NAME, GIVEN_NAMES, ORIGINS, PATHS, PHYSIQUES, REALMS, ROOTS, SECT_VERSION, SECTS, sectAccepts, SURNAMES, WORLDS, type Sect, type SectFx } from "./data";
 import { BANKS, type Question } from "./quiz";
 import { EVENTS } from "./events";
 import type { Choice, Condition, Effects, GameEvent, Outcome, PartnerStatus, SectStatus, Trial } from "./types";
@@ -89,6 +89,7 @@ export type Karma = {
   obsession?: { realm: number; kind: "tribulation" | "breakthrough" | "lifespan"; name: string }; // chấp niệm: cảnh giới kiếp trước gục ngã
   bond?: { name: string }; // tiền duyên: đạo lữ kiếp trước
   feud?: { name: string }; // oan gia: nạn nhân của ác nghiệp kiếp trước
+  sectBond?: { sectId: string; world: string; rank: "elder" | "chief" }; // tiền duyên sư môn: kiếp trước là trưởng lão / chưởng môn
 };
 
 /** Phúc báo / nghiệp chướng (điểm) từ cán cân thiện – ác thừa hưởng. */
@@ -288,7 +289,11 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     sin: 0,
     brave: 0, // số lần dám chọn phương án có rủi ro
     timid: 0, // số lần chọn đường an toàn
+    chosenSect: null as string | null, // phái người chơi chọn, gán khi được nhận
+    formerSect: null as string | null, // phái cũ đã phản xuất
+    betrayTick: 0,
   };
+  const sv4 = (profile.sv ?? 0) >= 4;
   const bv2 = (profile.bv ?? 0) >= 2;
   // Xuất thân bổ sung: chỉ số cộng lúc chào đời (6 xuất thân gốc không có bonus → kiếp cũ không đổi)
   if (origin.bonus) {
@@ -389,8 +394,9 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     }
     if (e.sect) {
       s.sect = e.sect;
-      if (e.sect === "member" && !s.sectId) {
-        s.sectId = pickSect();
+      if (e.sect === "member" && (!s.sectId || s.chosenSect)) {
+        s.sectId = s.chosenSect ?? pickSect();
+        s.chosenSect = null;
         const last = s.facts[s.facts.length - 1];
         if (last) last.text += ` Tông môn của ngươi: ${sectName(s.sectId)}.`;
       }
@@ -539,6 +545,8 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
 
     // ---- Nhân quả tiền kiếp (động phủ, tiền duyên, oan gia): mốc cố định theo seed
     if (K && karmaEvents()) continue;
+    // ---- Chính sự tông môn (bản 4): tiền duyên sư môn, chiêu mộ, truy sát, thu nhận phản đồ
+    if (sv4 && sectEvents()) continue;
 
     // ---- Sự kiện ngẫu nhiên
     if (rng.next() < (s.realm === 0 ? cfg.eventRate * 0.75 : cfg.eventRate)) {
@@ -567,7 +575,7 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
         kind: "event",
         title: ev.title,
         prompt: ev.text,
-        options: options.map(({ id, text, hint }) => ({ id, text, hint })),
+        options: options.map(({ id, text, hint }) => ({ id, text, hint: sv4 && ev.id === "sect_invite" && id === "join" ? "Chọn sơn môn muốn bái nhập rồi dự khảo hạch của phái đó" : hint })),
       };
       const pick = take(pending);
       resolveChoice(ev, options.find((c) => c.id === pick)!);
@@ -589,6 +597,11 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
   }
 
   function resolveChoice(ev: GameEvent, choice: Choice) {
+    // Bản môn phái 4: tự chọn phái muốn dự khảo hạch
+    if (sv4 && ev.id === "sect_invite" && choice.id === "join") {
+      chooseSect(ev);
+      return;
+    }
     if (choice.trial && s.path) {
       runTrial(choice.trial, ev.text, choice.text);
       return;
@@ -862,6 +875,186 @@ export function replay(seed: number, profile: Profile, choices: ChoiceInput[], b
     const at = s.facts.length;
     log("Chấp niệm tiêu tan", `Bước qua nơi ${ob.name} từng gục ngã, một tiếng thở dài từ sâu trong hồn phách tan biến. Chấp niệm kiếp trước đã dứt — đạo tâm sáng như gương.`, "opportunity");
     if (!s.endingReason) s.facts[at].delta = apply({ lifespan: Math.round(REALMS[s.realm].lifespan * 0.1), comprehension: 5, luck: 5 });
+  }
+
+  // ---------------------------------------------------------------- môn phái (bản 4)
+
+  function worldSects(): Sect[] {
+    return SECTS.filter((x) => x.world === world.id && x.since <= (profile.sv ?? 0));
+  }
+  function examText(x: Sect) {
+    return x.exam >= 3 ? "Đại tông: khảo hạch đúng 3/3" : "Khảo hạch đúng 2/3";
+  }
+  function okOutcome(text: string, effects: Effects): Outcome {
+    return { id: "ok", weight: 1, text, effects };
+  }
+
+  /** Lời mời nhập tông: người chơi chọn phái, rồi dự khảo hạch của phái đó. */
+  function chooseSect(ev: GameEvent) {
+    const list = worldSects();
+    const pending: PendingChoice = {
+      eventId: "__sect_pick",
+      kind: "event",
+      title: "Các sơn môn thu nhận đệ tử",
+      prompt: `Mùa thu nhận đệ tử, các tông môn của ${world.name} cùng dựng đài khảo hạch. Ngươi muốn bái nhập phái nào?`,
+      options: [
+        ...list.map((x) => ({ id: x.id, text: `${x.glyph} ${x.name}`, hint: `${examText(x)} · ${x.perk}` })),
+        { id: "none", text: "Thôi, làm tán tu", hint: "Tự do, thiếu thốn" },
+      ],
+    };
+    const pick = take(pending);
+    if (pick === "none") {
+      const at = s.facts.length;
+      log(ev.title, "Ngươi đứng nhìn các đài khảo hạch một lúc lâu, rồi quay lưng xuống núi. Con đường tán tu vẫn rộng mở.", "life", { choice: "Làm tán tu" });
+      s.facts[at].delta = apply({ luck: 2 });
+      return;
+    }
+    const sect = list.find((x) => x.id === pick)!;
+    const join: Effects = { sect: "member", flag: "joined_sect", resources: 20 };
+    s.chosenSect = sect.id;
+    if (!s.path || !banks[s.path]?.length) {
+      const at = s.facts.length;
+      log(ev.title, `${sect.name} nhận ngươi làm đệ tử ngoại môn.`, "opportunity", { choice: sect.name });
+      s.facts[at].delta = apply(join);
+      return;
+    }
+    runTrial(
+      {
+        title: `Khảo hạch nhập môn · ${sect.name}`,
+        count: 3,
+        pass: sect.exam,
+        onPass: okOutcome(`Trưởng lão ${sect.name} gật đầu, ghi tên ngươi vào sổ đệ tử. Từ nay ngươi mang y phục của ${sect.name}.`, join),
+        onFail: okOutcome(`Trưởng lão ${sect.name} lắc đầu: "Chưa đủ tư cách." Ngươi xuống núi, hẹn ngày trở lại — hoặc thử ở một sơn môn khác.`, { luck: -1 }),
+      },
+      ev.text,
+      sect.name,
+    );
+    s.chosenSect = null; // trượt: không giữ lựa chọn
+  }
+
+  /** Sự kiện tông môn theo mốc cố định (chỉ bản 4). Trả về true nếu lượt này đã dùng. */
+  function sectEvents(): boolean {
+    const member = s.sect === "member" || s.sect === "elder";
+    // Tiền duyên sư môn: kiếp trước là trưởng lão / chưởng môn của một phái cùng giới → phái ấy tìm đến
+    const sb = K?.sectBond;
+    if (sb && sb.world === world.id && s.sect === "none" && !s.flags.has("sect_bond_seen") && s.realm >= 1 && s.age >= awakenAge + 1) {
+      s.flags.add("sect_bond_seen");
+      const sect = SECTS.find((x) => x.id === sb.sectId);
+      if (!sect) return false;
+      const pending: PendingChoice = {
+        eventId: "__sect_bond",
+        kind: "event",
+        title: "Sư môn tiền kiếp",
+        prompt: `Một vị trưởng lão ${sect.name} tìm đến tận nhà, nhìn ngươi rất lâu: "Khí tức này… là ${sb.rank === "chief" ? "chưởng môn" : "trưởng lão"} đời trước của bổn môn chuyển thế!" Ông mời ngươi về núi, không cần khảo hạch.`,
+        options: [
+          { id: "return", text: `Trở về ${sect.name}`, hint: `Vào phái ngay · ${sect.perk}` },
+          { id: "refuse", text: "Kiếp này muốn đi con đường khác", hint: "Vẫn có thể dự khảo hạch phái khác" },
+        ],
+      };
+      const pick = take(pending);
+      const at = s.facts.length;
+      if (pick === "return") {
+        s.chosenSect = sect.id;
+        log(pending.title, `Sơn môn ${sect.name} mở rộng cửa đón ngươi. Các đệ tử thì thầm về vị tiền bối chuyển thế.`, "opportunity", { choice: `Trở về ${sect.name}` });
+        s.facts[at].delta = apply({ sect: "member", flag: "joined_sect", resources: 30, comprehension: 2 });
+        s.flags.add("sect_rebond");
+      } else {
+        log(pending.title, "Ngươi chắp tay từ chối. Duyên cũ là duyên cũ — kiếp này, ngươi muốn tự chọn đường.", "life", { choice: "Từ chối" });
+        s.facts[at].delta = apply({ luck: 1 });
+      }
+      return true;
+    }
+    // Chiêu mộ: Nguyên Anh trở lên, phái khác cùng giới muốn lôi kéo
+    if (member && s.realm >= 4 && !s.flags.has("recruit_seen") && s.tick % 31 === keyed(5) % 31) {
+      const others = worldSects().filter((x) => x.id !== s.sectId && sectAccepts(x, s.sin));
+      if (!others.length) return false;
+      s.flags.add("recruit_seen");
+      const to = others[keyed(6) % others.length];
+      const from = sectName(s.sectId);
+      const pending: PendingChoice = {
+        eventId: "__recruit",
+        kind: "event",
+        title: "Lời chiêu mộ",
+        prompt: `Sứ giả ${to.name} bí mật tìm gặp: "Tài năng như ngươi, ở ${from} thật uổng phí. Về với bổn môn — ${to.perk.toLowerCase()}"`,
+        options: [
+          { id: "defect", text: `Phản xuất sư môn, theo về ${to.name}`, hint: `Mất chức vị · ác nghiệp · ${from} có thể truy sát` },
+          { id: "stay", text: `Ở lại ${from}`, hint: "Thiện nghiệp, khí vận" },
+        ],
+      };
+      const pick = take(pending);
+      const at = s.facts.length;
+      if (pick === "defect") {
+        s.formerSect = s.sectId;
+        s.betrayTick = s.tick;
+        s.chosenSect = to.id;
+        log(pending.title, `Đêm ấy ngươi lặng lẽ rời ${from}, mang theo tâm pháp đã học. Từ nay ngươi là đệ tử ${to.name} — và là phản đồ trong mắt sư môn cũ.`, "choice", { choice: `Theo về ${to.name}` });
+        s.facts[at].delta = apply({ sect: "member", sin: 5, flag: "defected" });
+      } else {
+        log(pending.title, `Ngươi từ chối sứ giả. Chuyện đến tai chưởng môn ${from}, người khen ngươi trung nghĩa trước toàn phái.`, "life", { choice: "Ở lại" });
+        s.facts[at].delta = apply({ virtue: 3, luck: 2, resources: s.sect === "elder" ? 30 : 10 });
+      }
+      return true;
+    }
+    // Sư môn cũ truy sát kẻ phản xuất
+    if (s.formerSect && !s.flags.has("hunted") && s.tick - s.betrayTick >= 12 + (keyed(7) % 20)) {
+      s.flags.add("hunted");
+      const from = sectName(s.formerSect);
+      const pending: PendingChoice = {
+        eventId: "__hunted",
+        kind: "event",
+        title: "Sư môn truy sát",
+        prompt: `Ba vị trưởng lão ${from} chặn đường ngươi giữa đèo: "Phản đồ! Hôm nay thanh lý môn hộ."`,
+        options: [
+          { id: "fight", text: "Liều chết một phen", hint: "Có thể mất mạng" },
+          { id: "atone", text: "Quỳ xuống trả lại tâm pháp, xin tha", hint: "Mất linh tài, tu vi; giữ được mạng" },
+        ],
+      };
+      const pick = take(pending);
+      const at = s.facts.length;
+      if (pick === "atone") {
+        log(pending.title, `Ngươi tự phế một phần tu vi luyện từ tâm pháp ${from}, dâng lại linh tài. Các trưởng lão hừ lạnh rồi bỏ đi.`, "disaster", { choice: "Xin tha" });
+        s.facts[at].delta = apply({ resources: -40, cultivation: -60, virtue: 2 });
+      } else {
+        const out = rng.pick([
+          { weight: 50, t: "Ngươi đánh lui truy binh, nhưng vết thương rất nặng. Từ đây ân oán với sư môn cũ coi như dứt.", e: { health: -40, sin: 3 } as Effects },
+          { weight: 35, t: "Ngươi trọng thương bỏ chạy, phải ẩn náu nhiều năm mới dám lộ diện.", e: { health: -55, resources: -20 } as Effects },
+          { weight: 15, t: "Ba vị trưởng lão liên thủ. Ngươi ngã xuống — môn quy của sư môn cũ đã được thi hành.", e: { death: true } as Effects },
+        ]);
+        log(pending.title, out.t, out.e.death ? "ending" : "disaster", { choice: "Liều chết" });
+        s.facts[at].delta = apply(out.e, "Bị sư môn cũ thanh lý môn hộ");
+      }
+      return true;
+    }
+    // Thu nhận phản đồ / tán tu bị trục xuất: phái khác cùng giới có thể nhận làm đệ tử ký danh
+    if (s.sect === "outcast" && s.realm >= 1 && !s.flags.has("adopt_seen") && s.tick % 19 === keyed(8) % 19) {
+      const cands = worldSects().filter((x) => x.id !== s.sectId && sectAccepts(x, s.sin));
+      if (!cands.length) return false;
+      s.flags.add("adopt_seen");
+      // người nặng ác nghiệp được ma đạo để mắt trước
+      const to = (s.sin >= 15 ? cands.find((x) => x.align === "ta") : undefined) ?? cands[keyed(9) % cands.length];
+      const pending: PendingChoice = {
+        eventId: "__adopt",
+        kind: "event",
+        title: "Có người thu nhận",
+        prompt: `Lang bạt đã lâu, một vị trưởng lão ${to.name} (${ALIGN_NAME[to.align].toLowerCase()}) để ý đến ngươi: "Quá khứ không quan trọng. Muốn làm đệ tử ký danh của bổn môn không?"`,
+        options: [
+          { id: "join", text: `Bái nhập ${to.name}`, hint: `Đệ tử ký danh · ${to.perk}` },
+          { id: "free", text: "Quen sống tự do rồi", hint: "Khí vận" },
+        ],
+      };
+      const pick = take(pending);
+      const at = s.facts.length;
+      if (pick === "join") {
+        s.chosenSect = to.id;
+        log(pending.title, `Ngươi bái nhập ${to.name}. Bắt đầu lại từ đệ tử ký danh, nhưng ít nhất đã có nơi để về.`, "opportunity", { choice: `Bái nhập ${to.name}` });
+        s.facts[at].delta = apply({ sect: "member", flag: "readopted" });
+      } else {
+        log(pending.title, "Ngươi cảm tạ rồi từ chối. Gió núi vẫn là bạn đồng hành quen thuộc.", "life", { choice: "Sống tự do" });
+        s.facts[at].delta = apply({ luck: 1 });
+      }
+      return true;
+    }
+    return false;
   }
 
   /** Thế mạnh của phái đang theo (đệ tử / trưởng lão). Kiếp tạo trước phiên bản môn phái 3 chỉ Quy Chân Các có thế mạnh. */
