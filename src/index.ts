@@ -239,9 +239,11 @@ app.get("/api/leaderboard", async (c) => {
   if (world) { where.push("r.world = ?"); binds.push(world); }
   if (sect) { where.push("r.sect_id = ? AND r.sect_rank IN ('member', 'elder')"); binds.push(sect); }
   const { results } = await c.env.DB.prepare(
-    `SELECT name, isAnonymous, user_id, best_realm, age, world, sect_id, sect_rank, ending_reason, gender, seed FROM (
+    `SELECT name, isAnonymous, user_id, best_realm, age, world, sect_id, sect_rank, ending_reason, gender, seed, character, number, lives FROM (
        SELECT u.name, u.isAnonymous, r.user_id, r.best_realm, r.age, r.world, r.sect_id, r.sect_rank, r.ending_reason,
               json_extract(r.profile_json, '$.gender') AS gender, r.seed,
+              json_extract(r.profile_json, '$.name') AS character, r.number,
+              COUNT(*) OVER (PARTITION BY r.user_id) AS lives,
               ROW_NUMBER() OVER (PARTITION BY r.user_id ORDER BY ${order}, r.ended_at) AS rn
        FROM runs r JOIN "user" u ON u.id = r.user_id
        WHERE ${where.join(" AND ")}

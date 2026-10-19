@@ -872,3 +872,9 @@ button, a, .option { touch-action: manipulation; -webkit-tap-highlight-color: tr
 }
 .cards:has(.with-art) { grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); }
 @media (max-width: 900px) { .cards:has(.with-art) { grid-template-columns: 1fr; } }
+.fate-badge { display: inline-block; margin-left: 6px; font-size: 12px; padding: 1px 9px; border-radius: 99px; border: 1px solid color-mix(in srgb, var(--danger) 55%, transparent); color: var(--danger); vertical-align: middle; }
+.fate-badge.asc { color: var(--gold); border-color: color-mix(in srgb, var(--gold) 60%, transparent); }
+.who-av.faded .avatar-svg { filter: grayscale(.75) brightness(.92); }
+.dead-note { font-size: 13px; color: var(--danger); padding: 4px 0 2px; }
+@media (max-width: 900px) { .sheet .who .fate-badge { grid-area: badge; justify-self: end; margin: 2px 0 0; font-size: 11px; white-space: nowrap; } }
+.sub.owner b { color: var(--ink-2); font-weight: 500; }

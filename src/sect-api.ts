@@ -81,6 +81,11 @@ sects.get("/:id", async (c) => {
   ]);
   const voteMap = Object.fromEntries((votes.results as any[]).map((v) => [v.candidate_run, v.n]));
   const myRun = (mine.results as any[])[0];
+  // Nhân vật gần nhất đã khép kiếp (để báo người chơi vì sao không còn là đệ tử)
+  const lastRun = !myRun && user
+    ? await db.prepare("SELECT status, sect_id, ending_reason, profile_json FROM runs WHERE user_id = ? ORDER BY created_at DESC LIMIT 1").bind(user.id)
+        .first<{ status: string; sect_id: string | null; ending_reason: string | null; profile_json: string }>()
+    : null;
   const myVote = user
     ? await db.prepare("SELECT candidate_run FROM sect_votes WHERE sect_id = ? AND cycle = ? AND voter_user = ?").bind(id, state.cycle, user.id).first<{ candidate_run: string }>()
     : null;
@@ -107,6 +112,7 @@ sects.get("/:id", async (c) => {
           points: disciple ? (myRun.points ?? 0) : 0,
           vote: myVote?.candidate_run ?? null,
           canVote: disciple && !user.isAnonymous && state.phase === "vote",
+          departed: lastRun && lastRun.status !== "active" ? { character: nameFrom(lastRun.profile_json), sect: lastRun.sect_id, status: lastRun.status, ending: lastRun.ending_reason } : null,
         }
       : null,
   });
