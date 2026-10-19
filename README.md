@@ -75,7 +75,7 @@ Các kiếp nối với nhau bằng nhân quả (`src/karma.ts` tính lúc tạo
 
 ## Bảng xếp hạng
 
-Năm tab: **Cảnh giới**, **Sống lâu** (mỗi tu sĩ tính kiếp tốt nhất, lọc được theo giới diện và môn phái qua `/api/leaderboard?by=&world=&sect=`), **Đạo vị** (luận đạo), **Môn phái** (25 phái xếp theo thế lực / điểm tỷ võ / số đệ tử) và **Giới diện** (8 giới xếp theo số tu sĩ). Nút "Cao thủ ›" ở bảng phái/giới mở bảng cao thủ đã lọc sẵn.
+Các tab: **Cảnh giới**, **Sống lâu**, **Đang tu** (nhân vật còn sống, `by=alive`) (mỗi tu sĩ tính kiếp tốt nhất, lọc được theo giới diện và môn phái qua `/api/leaderboard?by=&world=&sect=`), **Đạo vị** (luận đạo), **Môn phái** (25 phái xếp theo thế lực / điểm tỷ võ / số đệ tử) và **Giới diện** (8 giới xếp theo số tu sĩ). Nút "Cao thủ ›" ở bảng phái/giới mở bảng cao thủ đã lọc sẵn.
 
 ## Bản đồ vạn giới
 

@@ -265,11 +265,13 @@ app.get("/api/game/lives", async (c) => {
 // Công khai. Mỗi người chỉ hiện kiếp tốt nhất. Khách vẫn lên bảng nhưng hiện "Vô danh tu sĩ" cho đến khi đăng ký.
 // ?by=realm (mặc định): cảnh giới rồi tuổi · ?by=age: sống lâu nhất
 app.get("/api/leaderboard", (c) => edgeCached(c, 30, async () => {
-  const order = c.req.query("by") === "age" ? "r.age DESC, r.best_realm DESC" : "r.best_realm DESC, r.age DESC";
+  const by = c.req.query("by");
+  const alive = by === "alive"; // nhân vật đang tu hành (kiếp chưa khép)
+  const order = by === "age" ? "r.age DESC, r.best_realm DESC" : "r.best_realm DESC, r.age DESC";
   // Lọc theo giới diện / môn phái (chỉ nhận id có trong dữ liệu game)
   const world = WORLDS.some((w) => w.id === c.req.query("world")) ? c.req.query("world")! : null;
   const sect = SECTS.some((x) => x.id === c.req.query("sect")) ? c.req.query("sect")! : null;
-  const where = ["r.status = 'finished'"];
+  const where = [alive ? "r.status = 'active'" : "r.status = 'finished'"];
   const binds: string[] = [];
   if (world) { where.push("r.world = ?"); binds.push(world); }
   if (sect) { where.push("r.sect_id = ? AND r.sect_rank IN ('member', 'elder')"); binds.push(sect); }

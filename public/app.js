@@ -1188,7 +1188,7 @@ const rankFilter = { world: "", sect: "" };
 async function renderRank(by = "realm") {
   const c = app.codex;
   const tab = (k, label) => `<button data-by="${k}" class="${by === k ? "on" : ""}">${label}</button>`;
-  const tabs = `<div class="tabs rank-tabs">${tab("realm", "Cảnh giới")}${tab("age", "Sống lâu")}${tab("duel", "Đạo vị")}${tab("sects", "Môn phái")}${tab("worlds", "Giới diện")}</div>`;
+  const tabs = `<div class="tabs rank-tabs">${tab("realm", "Cảnh giới")}${tab("age", "Sống lâu")}${tab("alive", "Đang tu")}${tab("duel", "Đạo vị")}${tab("sects", "Môn phái")}${tab("worlds", "Giới diện")}</div>`;
   const page = (intro, body) => {
     $view.innerHTML = `<div class="page rank-page"><h1>Bảng xếp hạng</h1>${tabs}<p class="muted small rank-intro">${intro}</p>${body}</div>`;
     $view.querySelectorAll(".rank-tabs button").forEach((b) => (b.onclick = () => renderRank(b.dataset.by)));
@@ -1289,7 +1289,9 @@ async function renderRank(by = "realm") {
   const sectsOf = c.sects.filter((x) => !rankFilter.world || x.world === rankFilter.world);
   const scope = rankFilter.sect ? byId(c.sects, rankFilter.sect)?.name : rankFilter.world ? byId(c.worlds, rankFilter.world)?.name : "";
   page(
-    "Mỗi người chơi chỉ tính kiếp tốt nhất: hiện tên nhân vật của kiếp đó, kèm đạo hiệu người chơi. Khách hiện là “Vô danh tu sĩ” cho đến khi lưu tiến trình.",
+    by === "alive"
+      ? "Những nhân vật đang tu hành ngay lúc này, xếp theo cảnh giới rồi tuổi. Kiếp khép lại thì rời bảng — cập nhật mỗi 30 giây."
+      : "Mỗi người chơi chỉ tính kiếp tốt nhất: hiện tên nhân vật của kiếp đó, kèm đạo hiệu người chơi. Khách hiện là “Vô danh tu sĩ” cho đến khi lưu tiến trình.",
     `<div class="rank-filter">
       <select id="fWorld" aria-label="Lọc theo giới diện"><option value="">Mọi giới diện</option>${c.worlds.map((w) => `<option value="${w.id}" ${w.id === rankFilter.world ? "selected" : ""}>${esc(w.name)}</option>`).join("")}</select>
       <select id="fSect" aria-label="Lọc theo môn phái"><option value="">Mọi môn phái</option>${sectsOf.map((x) => `<option value="${x.id}" ${x.id === rankFilter.sect ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select>
@@ -1303,10 +1305,10 @@ async function renderRank(by = "realm") {
               <div class="main"><div class="title">${esc(r.character ?? r.name)}${me(r)}</div>
                 <div class="sub owner">Kiếp ${pad(r.number ?? 1)} của <b>${esc(r.name)}</b>${r.lives > 1 ? ` · ${fmt(r.lives)} kiếp` : ""}</div>
                 <div class="sub">${fmt(r.age)} tuổi · ${esc(byId(c.worlds, r.world)?.name ?? "")}${r.sect_id ? ` · ${r.sect_rank === "outcast" ? "phản đồ " : ""}${esc(byId(c.sects, r.sect_id)?.name ?? "")}` : " · tán tu"}</div></div>
-              <div style="text-align:right"><div class="realm" style="--hue:${HUES[r.best_realm]}">${esc(c.realms[r.best_realm].name)}</div><div class="end">${esc(r.ending_reason)}</div></div></div>`,
+              <div style="text-align:right"><div class="realm" style="--hue:${HUES[r.best_realm]}">${esc(c.realms[r.best_realm].name)}</div><div class="end">${by === "alive" ? `<i class="live"></i>đang tu hành` : esc(r.ending_reason)}</div></div></div>`,
           )
           .join("")}</div>`
-      : `<div class="empty">${scope ? `Chưa ai ở ${esc(scope)} khép lại một kiếp.` : "Chưa có ai khép lại một kiếp."}</div>`}`,
+      : `<div class="empty">${by === "alive" ? (scope ? `Hiện không ai ở ${esc(scope)} đang tu hành.` : "Hiện chưa ai đang tu hành.") : scope ? `Chưa ai ở ${esc(scope)} khép lại một kiếp.` : "Chưa có ai khép lại một kiếp."}</div>`}`,
   );
   document.getElementById("fWorld").onchange = (e) => {
     rankFilter.world = e.target.value;
