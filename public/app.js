@@ -901,38 +901,79 @@ function wrapText(g, text, x, y, maxW, lineH, maxLines = 3) {
   return lines.length;
 }
 
+// Xuống dòng không vẽ: trả về các dòng (cắt bằng "…" nếu vượt maxLines)
+function splitLines(g, text, maxW, maxLines) {
+  const words = String(text).split(/\s+/);
+  const lines = [];
+  let line = "";
+  for (const w of words) {
+    const test = line ? `${line} ${w}` : w;
+    if (g.measureText(test).width > maxW && line) {
+      lines.push(line);
+      line = w;
+    } else line = test;
+  }
+  if (line) lines.push(line);
+  if (lines.length > maxLines) {
+    lines.length = maxLines;
+    let last = lines[maxLines - 1];
+    while (last.length > 1 && g.measureText(last + "…").width > maxW) last = last.slice(0, -1);
+    lines[maxLines - 1] = last.trimEnd() + "…";
+  }
+  return lines;
+}
+
 async function buildFateCard(run) {
   await loadCardFonts();
   const c = app.codex;
   const p = run.profile;
   const cv = document.createElement("canvas");
   cv.width = CARD.w;
-  cv.height = CARD.h;
-  const g = cv.getContext("2d");
+  let g = cv.getContext("2d");
   const font = (size, weight = 400, family = "Be Vietnam Pro") => (g.font = `${weight} ${size}px "${family}", serif`);
+
+  // ---- Đo trước để tính chiều cao ảnh: kết cục + lưới thành tựu (ảnh dài ra khi nhiều thành tựu)
+  font(42, 500, "Noto Serif");
+  const endLines = splitLines(g, run.endingReason ?? "Đang tu hành", 860, 2);
+  const achIds = (run.achievements ?? []).filter((id) => byId(c.achievements, id));
+  const COLS = 4, CELL_W = 210, CELL_H = 156, EMB = 76;
+  const gridRows = Math.ceil(achIds.length / COLS);
+  const endY = 1040; // dòng đầu của kết cục
+  const achTitleY = endY + (endLines.length - 1) * 52 + 74;
+  const gridTop = achTitleY + 26;
+  const gridBottom = achIds.length ? gridTop + gridRows * CELL_H : endY + (endLines.length - 1) * 52;
+  const quoteY = Math.max(1218, gridBottom + 56);
+  const footerY = quoteY + 50;
+  const H = Math.max(CARD.h, footerY + 82);
+  cv.height = H;
+  g = cv.getContext("2d");
   const center = (text, y, size, color, weight = 500, family = "Noto Serif") => {
     font(size, weight, family);
     g.fillStyle = color;
     g.textAlign = "center";
     g.fillText(text, CARD.w / 2, y, 920);
   };
+  const svgImage = async (markup) => {
+    const img = new Image();
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(markup);
+    await img.decode();
+    return img;
+  };
 
-  // Nền giấy + núi mờ + khung đôi
+  // Nền giấy + núi mờ (bám đáy ảnh) + khung đôi
   g.fillStyle = PALETTE.paper;
-  g.fillRect(0, 0, CARD.w, CARD.h);
+  g.fillRect(0, 0, CARD.w, H);
+  const dy = H - 1350;
   g.fillStyle = "#e9e6d8";
   g.beginPath();
-  g.moveTo(0, 1350); g.lineTo(0, 1060); g.lineTo(200, 900); g.lineTo(360, 1010); g.lineTo(560, 820); g.lineTo(760, 990); g.lineTo(920, 880); g.lineTo(1080, 980); g.lineTo(1080, 1350);
+  g.moveTo(0, 1350 + dy); g.lineTo(0, 1060 + dy); g.lineTo(200, 900 + dy); g.lineTo(360, 1010 + dy); g.lineTo(560, 820 + dy); g.lineTo(760, 990 + dy); g.lineTo(920, 880 + dy); g.lineTo(1080, 980 + dy); g.lineTo(1080, 1350 + dy);
   g.fill();
-  g.strokeStyle = "#a5b497"; g.lineWidth = 2; g.strokeRect(36, 36, 1008, 1278);
-  g.strokeStyle = PALETTE.line; g.lineWidth = 1; g.strokeRect(50, 50, 980, 1250);
+  g.strokeStyle = "#a5b497"; g.lineWidth = 2; g.strokeRect(36, 36, 1008, H - 72);
+  g.strokeStyle = PALETTE.line; g.lineWidth = 1; g.strokeRect(50, 50, 980, H - 100);
 
   // Chân dung theo cảnh giới cuối cùng + ấn triện nhỏ góc phải
   try {
-    const img = new Image();
-    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(portrait(run, run.realm, 176, { animate: false }));
-    await img.decode();
-    g.drawImage(img, 452, 64, 176, 176);
+    g.drawImage(await svgImage(portrait(run, run.realm, 176, { animate: false })), 452, 64, 176, 176);
   } catch {
     center(run.ascended ? "道" : "命", 178, 60, PALETTE.red);
   }
@@ -968,30 +1009,30 @@ async function buildFateCard(run) {
   // Kết cục
   center("KẾT CỤC", 980, 22, PALETTE.muted, 600, "Be Vietnam Pro");
   font(42, 500, "Noto Serif"); g.fillStyle = run.ascended ? PALETTE.gold : PALETTE.red; g.textAlign = "center";
-  const n = wrapText(g, run.endingReason ?? "Đang tu hành", 540, 1040, 860, 52, 2);
+  endLines.forEach((l, i) => g.fillText(l, 540, endY + i * 52));
 
-  // Thành tựu của kiếp này
-  // Thành tựu của kiếp này: hàng biểu trưng (tối đa 7)
-  const achIds = (run.achievements ?? []).filter((id) => byId(c.achievements, id));
+  // Thành tựu của kiếp này: lưới ô (biểu trưng + tên), mỗi hàng 4 ô, hàng cuối căn giữa
   if (achIds.length) {
-    const shown = achIds.slice(0, 7), sz = 74, gap = 14;
-    const x0 = 540 - (shown.length * sz + (shown.length - 1) * gap) / 2;
-    const y0 = 1040 + n * 52 + 4;
-    await Promise.all(
-      shown.map(async (id, i) => {
-        try {
-          const img = new Image();
-          img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(emblemSvg(id, { size: sz }));
-          await img.decode();
-          g.drawImage(img, x0 + i * (sz + gap), y0, sz, sz * 1.04);
-        } catch {}
-      }),
-    );
-    if (achIds.length > 7) center(`+${achIds.length - 7} thành tựu`, y0 + sz + 34, 20, PALETTE.green, 500, "Be Vietnam Pro");
+    center(`THÀNH TỰU KIẾP NÀY · ${achIds.length}`, achTitleY, 22, PALETTE.muted, 600, "Be Vietnam Pro");
+    const imgs = await Promise.all(achIds.map((id) => svgImage(emblemSvg(id, { size: EMB })).catch(() => null)));
+    achIds.forEach((id, i) => {
+      const row = Math.floor(i / COLS), col = i % COLS;
+      const inRow = Math.min(COLS, achIds.length - row * COLS);
+      const rowLeft = 540 - (inRow * CELL_W) / 2;
+      const cx = rowLeft + col * CELL_W + CELL_W / 2;
+      const top = gridTop + row * CELL_H;
+      // nền ô
+      g.fillStyle = "rgba(255,255,255,.55)";
+      g.strokeStyle = PALETTE.line; g.lineWidth = 1;
+      g.beginPath(); g.roundRect(cx - CELL_W / 2 + 8, top, CELL_W - 16, CELL_H - 12, 12); g.fill(); g.stroke();
+      if (imgs[i]) g.drawImage(imgs[i], cx - EMB / 2, top + 8, EMB, EMB * 1.04);
+      font(21, 500, "Be Vietnam Pro"); g.fillStyle = PALETTE.ink; g.textAlign = "center";
+      splitLines(g, byId(c.achievements, id).name, CELL_W - 32, 2).forEach((l, k) => g.fillText(l, cx, top + EMB + 36 + k * 25));
+    });
   }
 
-  center("“Một kiếp khép lại. Vạn kiếp vẫn còn phía trước.”", 1218, 26, PALETTE.muted, 400, "Noto Serif");
-  center(`TU TIÊN LỘ · ${location.host}`, 1268, 20, "#8b987e", 500, "Be Vietnam Pro");
+  center("“Một kiếp khép lại. Vạn kiếp vẫn còn phía trước.”", quoteY, 26, PALETTE.muted, 400, "Noto Serif");
+  center(`TU TIÊN LỘ · ${location.host}`, footerY, 20, "#8b987e", 500, "Be Vietnam Pro");
 
   return new Promise((resolve, reject) => cv.toBlob((b) => (b ? resolve(b) : reject(new Error("Không tạo được ảnh."))), "image/png"));
 }
