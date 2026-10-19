@@ -1,14 +1,42 @@
 # Tu Tiên Lộ
 
-Game mô phỏng một đời tu tiên. Chạy trên Cloudflare Workers + D1, dùng Better Auth để quản lý tài khoản.
+> *Một lần luân hồi, một đời tiên lộ.* Game mô phỏng đời tu tiên bằng tiếng Việt: gieo số mệnh, đi qua cơ duyên và kiếp nạn, chọn đạo đồ, trả lời khảo hạch, đột phá 14 cảnh giới, độ thiên kiếp — rồi luân hồi, mang theo nhân quả sang kiếp sau.
+
+### ▶ Chơi thử ngay: **[tutien.tamnguyen.com](https://tutien.tamnguyen.com)**
+
+Không cần đăng ký — mở là chơi bằng tài khoản khách; muốn giữ tiến trình thì lưu lại bằng email hoặc Google, mọi kiếp đã chơi được gộp vào tài khoản. Chơi được trên máy tính lẫn điện thoại.
+
+![Màn tu tiên: bảng nhân vật với chân dung theo cảnh giới, các mốc đời và câu khảo hạch](docs/screenshots/02-tu-tien.jpg)
+
+## Có gì trong game
+
+| | |
+|---|---|
+| ![Trang chủ](docs/screenshots/01-trang-chu.jpg) | ![Sổ Sinh Tử](docs/screenshots/03-so-sinh-tu.jpg) |
+| **Gieo số mệnh** — mỗi kiếp bốc giới diện, xuất thân, linh căn, thể chất, tư chất, ngộ tính, khí vận. Không có hai đời giống nhau. | **Sổ Sinh Tử & nhân quả** — thiện/ác nghiệp, túc tuệ, động phủ, chấp niệm, tiền duyên nối các kiếp với nhau. |
+| ![Vạn Giới Đồ](docs/screenshots/04-van-gioi-do.jpg) | ![Môn phái](docs/screenshots/05-mon-phai.jpg) |
+| **Vạn Giới Đồ** — bản đồ 8 giới diện phóng to/thu nhỏ được, xem tu sĩ đang tu, môn phái mạnh nhất, cao thủ từng giới. | **25 môn phái** — mỗi phái một thế mạnh và lá cờ riêng; tự chọn phái, chiêu mộ, phản xuất sư môn, bầu chưởng môn. |
+| ![Bảng xếp hạng](docs/screenshots/06-bang-xep-hang.jpg) | ![Luận đạo](docs/screenshots/09-luan-dao.jpg) |
+| **Bảng xếp hạng** — cảnh giới, sống lâu, đang tu, đạo vị, môn phái, giới diện; lọc theo giới và phái. | **Luận đạo** — đấu khảo hạch trực tiếp với người chơi khác (hoặc đấu với bạn qua mã/QR), tính Đạo vị (Elo). |
+| ![Cẩm nang cảnh giới](docs/screenshots/07-cam-nang-canh-gioi.jpg) | ![Thành tựu](docs/screenshots/08-thanh-tuu.jpg) |
+| **Cẩm nang** — giải thích chi tiết luân hồi, cảnh giới, linh căn, thể chất, đạo đồ, xuất thân, giới diện, môn phái kèm hình minh họa. | **28 thành tựu** có biểu trưng riêng, chia 5 nhóm. |
+
+<p align="center">
+  <img src="docs/screenshots/10-anh-so-menh.jpg" alt="Ảnh số mệnh chia sẻ được" width="300" />
+  <img src="docs/screenshots/11-dien-thoai-tu-tien.jpg" alt="Chơi trên điện thoại" width="250" />
+  <img src="docs/screenshots/12-dien-thoai-ban-do.jpg" alt="Bản đồ trên điện thoại" width="250" />
+</p>
+<p align="center"><i>Ảnh số mệnh để chia sẻ khi khép một kiếp · giao diện trên điện thoại</i></p>
+
+> Kỹ thuật: Cloudflare Workers + D1 + Durable Objects, Better Auth, giao diện JavaScript thuần (không build). Engine mô phỏng tất định — máy chủ chỉ lưu lựa chọn và dựng lại kiếp, nên không gian lận được. Chi tiết bên dưới.
 
 ## Lối chơi
 
-- **Gieo số mệnh:** mỗi kiếp bốc ngẫu nhiên giới diện (8), xuất thân (6), linh căn (7), thể chất (6), tư chất, ngộ tính, khí vận và giới tính, kèm tên. Rút phải số mệnh xấu 5 lần liền thì kiếp sau chắc chắn có linh căn tốt.
+- **Gieo số mệnh:** mỗi kiếp bốc ngẫu nhiên giới diện (8), xuất thân (13), linh căn (7), thể chất (6), tư chất, ngộ tính, khí vận và giới tính, kèm tên. Rút phải số mệnh xấu 5 lần liền thì kiếp sau chắc chắn có linh căn tốt.
 - **14 cảnh giới**, từ Phàm nhân đến Tiên Đế. Cảnh giới càng cao tu luyện càng chậm. Người phàm căn sống một đời phàm nhân, trừ khi gặp kỳ ngộ khai mở linh căn.
 - **Bình cảnh:** người chơi tự chọn thử đột phá, dùng linh tài hộ pháp hoặc tích lũy thêm. Giao diện hiện tỉ lệ thành công. Khi bước vào Hóa Thần, Chân Tiên, và ở bước chứng đạo cuối cùng phải độ thiên kiếp, thất bại có thể mất mạng.
 - **Sự kiện** (`src/game/events/`): tuổi thơ, đời phàm nhân, tu luyện, kỳ ngộ, kiếp nạn, chuỗi tông môn (đệ tử → trưởng lão, bị trục xuất) và đạo lữ (song tu, gặp nạn, tử biệt). Lựa chọn ở đây để lại trạng thái lâu dài.
-- **19 thành tựu**, bảng xếp hạng theo cảnh giới hoặc tuổi thọ (mỗi người chỉ tính kiếp tốt nhất), lịch sử để đọc lại từng kiếp, cẩm nang, ảnh chia sẻ, giao diện sáng/tối, hiển thị được trên điện thoại.
+- **28 thành tựu**, bảng xếp hạng theo cảnh giới hoặc tuổi thọ (mỗi người chỉ tính kiếp tốt nhất), Sổ Sinh Tử để đọc lại từng kiếp, cẩm nang, ảnh chia sẻ, giao diện sáng/tối, hiển thị được trên điện thoại.
 - **Phát lại:** các mốc đời hiện lần lượt với tốc độ x1, x2, x4. Có nút tạm dừng, hiện hết, và chế độ "Để số mệnh tự quyết".
 
 ## Đạo đồ & khảo hạch

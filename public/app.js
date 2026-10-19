@@ -1036,7 +1036,9 @@ async function buildFateCard(run) {
   }
 
   center("“Một kiếp khép lại. Vạn kiếp vẫn còn phía trước.”", quoteY, 26, PALETTE.muted, 400, "Noto Serif");
-  center(`TU TIÊN LỘ · ${location.host}`, footerY, 20, "#8b987e", 500, "Be Vietnam Pro");
+  // Ảnh chia sẻ luôn ghi tên miền chính (kể cả khi tạo từ bản chạy thử/local)
+  const site = /localhost|127\.0\.0\.1|workers\.dev/.test(location.host) ? "tutien.tamnguyen.com" : location.host;
+  center(`TU TIÊN LỘ · ${site}`, footerY, 20, "#8b987e", 500, "Be Vietnam Pro");
 
   return new Promise((resolve, reject) => cv.toBlob((b) => (b ? resolve(b) : reject(new Error("Không tạo được ảnh."))), "image/png"));
 }
