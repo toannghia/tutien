@@ -35,6 +35,8 @@ export function createAuth(env: Env) {
     session: {
       expiresIn: 60 * 60 * 24 * 90, // 90 ngày — khớp với hạn dọn tài khoản khách
       updateAge: 60 * 60 * 24,
+      // Hiệu năng: phiên được ký vào cookie, kiểm tra 5 phút/lần thay vì tra D1 mỗi request
+      cookieCache: { enabled: true, maxAge: 5 * 60 },
     },
     plugins: [
       anonymous({

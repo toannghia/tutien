@@ -157,6 +157,27 @@ npm run balance   # phân bố cảnh giới cuối, kết cục, số lựa ch�
 
 Client chỉ gửi **lựa chọn** (`step`, `eventId`, `choiceId`). Máy chủ giữ `seed` và dựng lại cả kiếp bằng [`replay()`](src/game/engine.ts), một hàm tất định. Lựa chọn không khớp sự kiện đang chờ sẽ bị trả lỗi 400. Gửi lại cùng một `step` thì được trả lại trạng thái cũ (idempotent), nên mạng chập chờn không làm hỏng kiếp.
 
+## Hiệu năng & sức chịu tải
+
+Đo ngày 2026-10-19 (production, từ Việt Nam): mỗi lựa chọn ~160ms (trước tối ưu ~2s), tạo kiếp ~230ms, các API công khai 60–80ms. Engine replay cả kiếp chỉ 0,4ms (p95 0,7ms) — `npx tsx scripts/bench.ts`.
+
+Tối ưu đã làm:
+- **Smart Placement** (`placement.mode = smart`): Worker chạy gần D1 khi một request gọi D1 nhiều lần.
+- **Phiên đăng nhập trong cookie đã ký** (Better Auth `cookieCache`, 5 phút): không tra D1 mỗi request.
+- **Gộp truy vấn:** mỗi lựa chọn chỉ 1 lượt đọc (kiếp + lựa chọn) và 1 lượt ghi (lựa chọn + tiến trình + nhân quả). Sổ ôn tập, dọn dẹp môn phái chạy nền (`waitUntil`). Tạo kiếp chạy các truy vấn đọc song song.
+- **Chỉ gửi phần diễn biến mới** (`known` → `factsFrom`): dữ liệu mỗi lựa chọn ~2,4KB thay vì cả kiếp.
+- **Cache:** câu hỏi là bất biến nên nạp một lần/isolate; phiên bản câu hỏi 15s; cấu hình 30s; Cẩm nang 60s, bảng xếp hạng 30s, danh sách môn phái 20s ở rìa mạng; tiến trình bầu cử chạy tối đa 30s/lần.
+
+Ước tính (1 người đang chơi ≈ 1 lựa chọn / 10 giây ≈ 0,1 request/s; mỗi lựa chọn ≈ 3,5 dòng ghi, ~40 dòng đọc):
+| Người chơi cùng lúc | Request/s | Dòng ghi D1/s | Nhận xét |
+|---|---|---|---|
+| 1.000 | ~100 | ~350 | thoải mái |
+| 5.000 | ~500 | ~1.750 | ổn; nên bật D1 read replication |
+| 10.000+ | ~1.000+ | ~3.500+ | gần trần ghi của một DB D1 → chuyển trạng thái kiếp sang Durable Object/người chơi (ghi D1 dồn lô) hoặc chia DB |
+- **Gói Cloudflare:** gói miễn phí giới hạn 100k request/ngày (~2.000 kiếp/ngày) và D1 100k dòng ghi/ngày (~700 kiếp/ngày) → khi có nhiều người chơi cần **Workers Paid** ($5/tháng: 10 triệu request, D1 50 triệu dòng ghi/tháng).
+- **Dung lượng:** ~6KB/kiếp → 1 triệu kiếp ≈ 6GB (giới hạn 10GB/DB) → khi lớn cần chính sách nén/xóa `run_choices` của kiếp cũ.
+- **Luận đạo:** Matchmaker là một Durable Object toàn cục (đủ cho hàng nghìn lượt ghép/phút); mỗi trận là một DuelRoom riêng nên mở rộng ngang.
+
 ## Chạy local
 
 ```bash

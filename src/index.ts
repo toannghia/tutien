@@ -11,6 +11,7 @@ import { leaderTitle, onRunEnded, tickAll } from "./sect";
 import { inheritKarma, karmaStatements } from "./karma";
 import { karmaBalance, realmDifficulty } from "./game/engine";
 import { sects } from "./sect-api";
+import { edgeCached } from "./cache";
 
 export { Matchmaker } from "./duel/matchmaker";
 export { DuelRoom } from "./duel/room";
@@ -23,13 +24,15 @@ type RunRow = { id: string; user_id: string; number: number; seed: number; world
 
 const app = new Hono<{ Bindings: Env; Variables: Vars }>();
 
+
+
 app.on(["GET", "POST"], "/api/auth/*", (c) => createAuth(c.env).handler(c.req.raw));
 
 // Cẩm nang + cấu hình: công khai, client tải một lần lúc mở game
-app.get("/api/codex", async (c) => {
+app.get("/api/codex", (c) => edgeCached(c, 60, async () => {
   const [{ banks }, settings] = await Promise.all([currentBanks(c.env.DB), getSettings(c.env.DB)]);
   const curve = Number(settings.realmCurve);
-  return c.json({
+  return {
     // Kèm độ khó hiện hành (cho kiếp mới): tỉ lệ bình cảnh cơ bản, tốc độ tu luyện, độ hung của thiên kiếp
     realms: REALMS.map((r, i) => {
       const d = realmDifficulty(curve, i);
@@ -45,8 +48,8 @@ app.get("/api/codex", async (c) => {
     sects: SECTS,
     achievements: ACHIEVEMENTS.map(({ id, name, desc }) => ({ id, name, desc })),
     google: !!(c.env.GOOGLE_CLIENT_ID && c.env.GOOGLE_CLIENT_SECRET),
-  });
-});
+  };
+}));
 
 // Mọi API game đều cần phiên (khách hoặc thật). Client gọi /api/auth/sign-in/anonymous lúc mở game.
 app.use("/api/game/*", async (c, next) => {
@@ -73,75 +76,102 @@ app.get("/api/game/me", async (c) => {
 });
 
 // Bắt đầu kiếp mới. Kiếp đang dở (nếu có) được tính là luân hồi sớm.
+// Hiệu năng: mọi truy vấn đọc độc lập chạy song song; dọn dẹp môn phái cho kiếp cũ chạy sau khi đã trả kết quả.
 app.post("/api/game/runs", async (c) => {
   const user = c.get("user");
   const db = c.env.DB;
-  const stats = await db.prepare("SELECT pity_count FROM user_stats WHERE user_id = ?").bind(user.id).first<{ pity_count: number }>();
-  const last = await db.prepare("SELECT COALESCE(MAX(number), 0) AS n FROM runs WHERE user_id = ?").bind(user.id).first<{ n: number }>();
+  const [statsLast, settings, { version: qv, banks }, due, karma] = await Promise.all([
+    db.batch([
+      db.prepare("SELECT pity_count FROM user_stats WHERE user_id = ?").bind(user.id),
+      db.prepare("SELECT COALESCE(MAX(number), 0) AS n FROM runs WHERE user_id = ?").bind(user.id),
+      db.prepare("SELECT id FROM runs WHERE user_id = ? AND status = 'active'").bind(user.id),
+    ]),
+    getSettings(db),
+    currentBanks(db),
+    dueFamilies(db, user.id, { limit: 40 }),
+    inheritKarma(db, user.id),
+  ]);
+  const stats = statsLast[0].results[0] as { pity_count: number } | undefined;
+  const last = statsLast[1].results[0] as { n: number } | undefined;
+  const prev = statsLast[2].results as { id: string }[];
 
   const seed = crypto.getRandomValues(new Uint32Array(1))[0];
   // Chụp cấu hình hiện tại vào kiếp: admin đổi chỉ số sau này không ảnh hưởng kiếp đang chơi
-  const settings = await getSettings(db);
   const profile = createProfile(seed, stats?.pity_count ?? 0, gameConfigOf(settings), Number(settings.pityLimit));
   // Chụp phiên bản ngân hàng câu hỏi: admin sửa câu hỏi sau này không làm lệch kiếp này
-  const { version: qv, banks } = await currentBanks(db);
   if (qv) {
     profile.qv = qv;
     // Ôn tập ngắt quãng: câu đến hạn của người chơi được xếp vào kiếp này (đạo đồ chưa biết lúc tạo → lấy mọi đạo đồ)
-    const due = await dueFamilies(db, user.id, { limit: 40 });
     const ids = await idsForFamilies(db, qv, due.map((d) => d.family));
     const review = due.map((d) => ids.get(d.family)).filter((x): x is string => !!x);
     if (review.length) profile.review = review;
   }
   // Nhân quả luân hồi: những gì các kiếp trước để lại
-  profile.karma = await inheritKarma(db, user.id);
+  profile.karma = karma;
   const state = replay(seed, profile, [], banks);
   const id = crypto.randomUUID();
   const now = Date.now();
+  const number = (last?.n ?? 0) + 1;
   const pity = profile.isGood ? 0 : (stats?.pity_count ?? 0) + 1;
-  const prev = await db.prepare("SELECT id FROM runs WHERE user_id = ? AND status = 'active'").bind(user.id).all<{ id: string }>();
 
-  await db.batch([
+  const unlocked = await saveProgress(db, id, user.id, state, profile, [
     db.prepare("UPDATE runs SET status = 'abandoned', ended_at = ?, ending_reason = 'Luân hồi sớm' WHERE user_id = ? AND status = 'active'").bind(now, user.id),
     db.prepare("INSERT INTO runs (id, user_id, number, seed, world, profile_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
-      .bind(id, user.id, (last?.n ?? 0) + 1, seed, profile.world, JSON.stringify(profile), now),
+      .bind(id, user.id, number, seed, profile.world, JSON.stringify(profile), now),
     db.prepare(
       `INSERT INTO user_stats (user_id, total_runs, pity_count, updated_at) VALUES (?1, 1, ?2, ?3)
        ON CONFLICT(user_id) DO UPDATE SET total_runs = total_runs + 1, pity_count = ?2, updated_at = ?3`,
     ).bind(user.id, pity, now),
-  ]);
-  for (const r of prev.results) await onRunEnded(db, r.id, "Luân hồi sớm");
-  const unlocked = await saveProgress(db, id, user.id, state, profile);
-  return c.json({ ...view(id, (last?.n ?? 0) + 1, profile, state), unlocked }, 201);
+  ], c.executionCtx);
+  if (prev.length) c.executionCtx.waitUntil(Promise.all(prev.map((r) => onRunEnded(db, r.id, "Luân hồi sớm"))).catch(() => {}));
+  return c.json({ ...view(id, number, profile, state), unlocked }, 201);
 });
+
+// Đọc kiếp + toàn bộ lựa chọn trong một lượt gọi D1
+async function loadRun(db: D1Database, where: string, binds: unknown[]) {
+  const [runs, choices] = await db.batch([
+    db.prepare(`SELECT * FROM runs WHERE ${where} LIMIT 1`).bind(...binds),
+    db.prepare(`SELECT event_id, choice_id FROM run_choices WHERE run_id = (SELECT id FROM runs WHERE ${where} LIMIT 1) ORDER BY step`).bind(...binds),
+  ]);
+  const run = runs.results[0] as RunRow | undefined;
+  return { run, choices: (choices.results as { event_id: string; choice_id: string }[]).map((r) => ({ eventId: r.event_id, choiceId: r.choice_id })) };
+}
 
 app.get("/api/game/runs/current", async (c) => {
   const user = c.get("user");
-  const run = await c.env.DB.prepare("SELECT * FROM runs WHERE user_id = ? AND status = 'active' ORDER BY created_at DESC LIMIT 1").bind(user.id).first<RunRow>();
+  const { run, choices } = await loadRun(c.env.DB, "user_id = ? AND status = 'active' ORDER BY created_at DESC", [user.id]);
   if (!run) return c.json(null);
   const profile = JSON.parse(run.profile_json) as Profile;
   try {
-    return c.json(view(run.id, run.number, profile, replay(run.seed, profile, await loadChoices(c.env.DB, run.id), await banksFor(c.env.DB, profile.qv))));
+    return c.json(view(run.id, run.number, profile, replay(run.seed, profile, choices, await banksFor(c.env.DB, profile.qv))));
   } catch (e) {
     // Nội dung game đã thay đổi khiến lựa chọn cũ không còn khớp: khép kiếp dở thay vì báo lỗi mãi
     if (!(e instanceof InvalidChoiceError)) throw e;
     await c.env.DB.prepare("UPDATE runs SET status = 'abandoned', ended_at = ?, ending_reason = 'Thiên đạo biến đổi (cập nhật nội dung)' WHERE id = ?")
       .bind(Date.now(), run.id).run();
-    await onRunEnded(c.env.DB, run.id, "Thiên đạo biến đổi");
+    c.executionCtx.waitUntil(onRunEnded(c.env.DB, run.id, "Thiên đạo biến đổi").catch(() => {}));
     return c.json(null);
   }
 });
 
+// Chỉ gửi các mốc từ `known - 1` (mốc cuối cũ có thể được đóng dấu lại chỉ số) — giảm mạnh dung lượng mỗi lựa chọn
+function trimFacts<T extends { facts: unknown[] }>(v: T, known: unknown) {
+  const k = Number(known);
+  if (!Number.isInteger(k) || k <= 0 || k > v.facts.length) return v;
+  const from = k - 1;
+  return { ...v, facts: v.facts.slice(from), factsFrom: from };
+}
+
 // Gửi một lựa chọn. `step` = thứ tự lựa chọn; gửi lại cùng step + cùng lựa chọn thì trả lại trạng thái (idempotent).
+// Hiệu năng: 1 lượt đọc (kiếp + lựa chọn), 1 lượt ghi (lựa chọn + tiến trình + nhân quả); sổ ôn tập và môn phái ghi sau khi trả kết quả.
 app.post("/api/game/runs/:id/choices", async (c) => {
   const user = c.get("user");
   const db = c.env.DB;
-  const body = await c.req.json<{ step: number } & ChoiceInput>();
-  const run = await db.prepare("SELECT * FROM runs WHERE id = ? AND user_id = ?").bind(c.req.param("id"), user.id).first<RunRow>();
+  const body = await c.req.json<{ step: number; known?: number } & ChoiceInput>();
+  const { run, choices } = await loadRun(db, "id = ? AND user_id = ?", [c.req.param("id"), user.id]);
   if (!run) return c.json({ error: "not_found" }, 404);
 
   const profile = JSON.parse(run.profile_json) as Profile;
-  const choices = await loadChoices(db, run.id);
   if (run.status !== "active") return c.json({ error: "run_closed" }, 409);
 
   if (body.step < choices.length) {
@@ -160,17 +190,22 @@ app.post("/api/game/runs/:id/choices", async (c) => {
     if (e instanceof InvalidChoiceError) return c.json({ error: "invalid_choice" }, 400);
     throw e;
   }
-  // Câu khảo hạch → ghi sổ nhớ ôn tập
+  // Câu khảo hạch → ghi sổ nhớ ôn tập (không chặn phản hồi)
   if (body.eventId.startsWith("quiz:")) {
     const qid = body.eventId.slice(5);
-    const f = (await familyOf(db, [qid])).get(qid);
     const fact = [...state.facts].reverse().find((x) => x.quiz?.qid === qid);
-    if (f && fact?.quiz) await recordAnswers(db, user.id, [{ family: f.family, path: f.path, grade: body.choiceId === "skip" ? "skip" : fact.quiz.ok ? "good" : "again" }]);
+    c.executionCtx.waitUntil(
+      (async () => {
+        const f = (await familyOf(db, [qid])).get(qid);
+        if (f && fact?.quiz) await recordAnswers(db, user.id, [{ family: f.family, path: f.path, grade: body.choiceId === "skip" ? "skip" : fact.quiz.ok ? "good" : "again" }]);
+      })().catch(() => {}),
+    );
   }
-  await db.prepare("INSERT INTO run_choices (run_id, step, event_id, choice_id, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING")
-    .bind(run.id, body.step, body.eventId, body.choiceId, Date.now()).run();
-  const unlocked = await saveProgress(db, run.id, user.id, state, profile);
-  return c.json({ ...view(run.id, run.number, profile, state), unlocked });
+  const unlocked = await saveProgress(db, run.id, user.id, state, profile, [
+    db.prepare("INSERT INTO run_choices (run_id, step, event_id, choice_id, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT DO NOTHING")
+      .bind(run.id, body.step, body.eventId, body.choiceId, Date.now()),
+  ], c.executionCtx);
+  return c.json(trimFacts({ ...view(run.id, run.number, profile, state), unlocked }, body.known));
 });
 
 // Xem lại toàn bộ một kiếp đã qua (dựng lại từ seed + lựa chọn)
@@ -229,7 +264,7 @@ app.get("/api/game/lives", async (c) => {
 
 // Công khai. Mỗi người chỉ hiện kiếp tốt nhất. Khách vẫn lên bảng nhưng hiện "Vô danh tu sĩ" cho đến khi đăng ký.
 // ?by=realm (mặc định): cảnh giới rồi tuổi · ?by=age: sống lâu nhất
-app.get("/api/leaderboard", async (c) => {
+app.get("/api/leaderboard", (c) => edgeCached(c, 30, async () => {
   const order = c.req.query("by") === "age" ? "r.age DESC, r.best_realm DESC" : "r.best_realm DESC, r.age DESC";
   // Lọc theo giới diện / môn phái (chỉ nhận id có trong dữ liệu game)
   const world = WORLDS.some((w) => w.id === c.req.query("world")) ? c.req.query("world")! : null;
@@ -249,8 +284,8 @@ app.get("/api/leaderboard", async (c) => {
        WHERE ${where.join(" AND ")}
      ) r WHERE rn = 1 ORDER BY ${order} LIMIT 50`,
   ).bind(...binds).all<{ name: string; isAnonymous: number; user_id: string }>();
-  return c.json(results.map(({ user_id, isAnonymous, ...r }) => ({ ...r, name: isAnonymous ? GUEST_NAME : r.name, userId: user_id })));
-});
+  return results.map(({ user_id, isAnonymous, ...r }) => ({ ...r, name: isAnonymous ? GUEST_NAME : r.name, userId: user_id }));
+}));
 
 app.route("/api/admin", admin);
 app.route("/api/sects", sects);
@@ -424,15 +459,15 @@ app.get("/api/duel/me", async (c) => {
 });
 
 // Bảng Đạo vị: chỉ tài khoản đã đăng ký, đã đấu ít nhất 1 trận
-app.get("/api/duel/leaderboard", async (c) => {
+app.get("/api/duel/leaderboard", (c) => edgeCached(c, 30, async () => {
   const { results } = await c.env.DB.prepare(
     `SELECT r.user_id AS userId, u.name, r.rating, r.wins, r.losses, r.draws, COALESCE(st.best_realm, 0) AS realm
      FROM ratings r JOIN "user" u ON u.id = r.user_id LEFT JOIN user_stats st ON st.user_id = r.user_id
      WHERE u.isAnonymous = 0 OR u.isAnonymous IS NULL
      ORDER BY r.rating DESC, r.wins DESC LIMIT 50`,
   ).all();
-  return c.json(results);
-});
+  return results;
+}));
 
 async function loadChoices(db: D1Database, runId: string): Promise<ChoiceInput[]> {
   const { results } = await db.prepare("SELECT event_id, choice_id FROM run_choices WHERE run_id = ? ORDER BY step").bind(runId).all<{ event_id: string; choice_id: string }>();
@@ -440,7 +475,7 @@ async function loadChoices(db: D1Database, runId: string): Promise<ChoiceInput[]
 }
 
 // Trả về danh sách thành tựu mới mở khoá (nếu kiếp vừa kết thúc)
-async function saveProgress(db: D1Database, runId: string, userId: string, s: RunState, profile: Profile): Promise<string[]> {
+async function saveProgress(db: D1Database, runId: string, userId: string, s: RunState, profile: Profile, before: D1PreparedStatement[] = [], ctx?: { waitUntil(p: Promise<unknown>): void }): Promise<string[]> {
   const finished = s.phase === "finished";
   let unlocked: string[] = [];
   let all: string[] = [];
@@ -451,6 +486,7 @@ async function saveProgress(db: D1Database, runId: string, userId: string, s: Ru
     all = [...had, ...unlocked];
   }
   const stmts = [
+    ...before,
     db.prepare("UPDATE runs SET best_realm = ?, age = ?, status = ?, ending_reason = ?, ended_at = ?, sect_id = ?, sect_rank = ?, path = ? WHERE id = ? AND status = 'active'")
       .bind(s.realm, s.age, finished ? "finished" : "active", s.endingReason, finished ? Date.now() : null, s.sectId, s.sectId && s.sect !== "none" ? s.sect : null, s.path, runId),
   ];
@@ -462,8 +498,12 @@ async function saveProgress(db: D1Database, runId: string, userId: string, s: Ru
     );
   }
   await db.batch(stmts);
-  // Kiếp khép lại: điểm tỷ võ tan biến, ghế chưởng môn (nếu có) bỏ trống
-  if (finished) await onRunEnded(db, runId, "Tọa hóa");
+  // Kiếp khép lại: điểm tỷ võ tan biến, ghế chưởng môn (nếu có) bỏ trống — chạy nền nếu có ctx
+  if (finished) {
+    const p = onRunEnded(db, runId, "Tọa hóa");
+    if (ctx) ctx.waitUntil(p.catch(() => {}));
+    else await p;
+  }
   return unlocked;
 }
 

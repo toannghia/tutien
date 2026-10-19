@@ -4,6 +4,7 @@ import { createAuth, GUEST_NAME, type Env } from "./auth";
 import { SECTS } from "./game/data";
 import { castVote, tickAll, tickSect } from "./sect";
 import { getSettings } from "./settings";
+import { edgeCached } from "./cache";
 
 type User = { id: string; name: string; isAnonymous?: boolean | null };
 export const sects = new Hono<{ Bindings: Env }>();
@@ -33,9 +34,14 @@ export function cleanMotto(raw: unknown): string | { error: string } {
 }
 
 // Bảng xếp hạng môn phái theo tổng điểm tỷ võ của đệ tử đang tại thế
-sects.get("/", async (c) => {
+// Tiến trình bầu cử của mọi phái: tối đa 30 giây một lần mỗi isolate, chạy nền (cron hằng ngày lo phần còn lại)
+let lastTickAll = 0;
+sects.get("/", (c) => edgeCached(c, 20, async () => {
   const db = c.env.DB;
-  await tickAll(db, await getSettings(db));
+  if (Date.now() - lastTickAll > 30_000) {
+    lastTickAll = Date.now();
+    await tickAll(db, await getSettings(db)).catch(() => {});
+  }
   const [pts, members, states] = await db.batch([
     db.prepare(`SELECT p.sect_id, SUM(p.points) AS points, COUNT(*) AS fighters FROM sect_points p JOIN runs r ON r.id = p.run_id
                 WHERE r.status = 'active' AND r.sect_id = p.sect_id GROUP BY p.sect_id`),
@@ -57,8 +63,8 @@ sects.get("/", async (c) => {
       phaseEnds: s?.phase_ends ?? null,
     };
   }).sort((a, b) => b.points - a.points || b.disciples - a.disciples);
-  return c.json(list);
-});
+  return list;
+}));
 
 // Chi tiết một phái + tình trạng của người xem
 sects.get("/:id", async (c) => {

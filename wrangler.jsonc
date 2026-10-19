@@ -2,6 +2,8 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "tutien",
   "main": "src/index.ts",
+  // Đặt Worker gần D1 khi một request gọi D1 nhiều lần (giảm độ trễ mỗi truy vấn)
+  "placement": { "mode": "smart" },
   "compatibility_date": "2026-09-01",
   "compatibility_flags": ["nodejs_compat"],
   // Tên miền riêng (khai báo ở đây để mỗi lần deploy không bị gỡ)

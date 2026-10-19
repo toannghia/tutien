@@ -604,8 +604,10 @@ async function choose(choiceId, { keepOpen = false } = {}) {
   try {
     const next = await api(`/api/game/runs/${run.id}/choices`, {
       method: "POST",
-      body: { step: run.step, eventId: run.pending.eventId, choiceId },
+      body: { step: run.step, eventId: run.pending.eventId, choiceId, known: run.facts.length },
     });
+    // Máy chủ chỉ gửi phần diễn biến mới: ghép với các mốc đã có
+    if (next.factsFrom != null) next.facts = run.facts.slice(0, next.factsFrom).concat(next.facts);
     app.run = next;
     app.justUnlocked = next.unlocked ?? [];
     if (!keepOpen) {

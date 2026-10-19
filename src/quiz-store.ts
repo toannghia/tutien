@@ -20,14 +20,20 @@ export type QuestionRow = {
 
 let cache: { version: number; rows: QuestionRow[]; at: number } | null = null;
 
+// Phiên bản hiện hành: cache 15 giây mỗi isolate (admin sửa câu hỏi thì isolate đó xoá cache ngay; isolate khác trễ tối đa 15 giây)
+let versionCache: { v: number; at: number } | null = null;
 export async function currentVersion(db: D1Database): Promise<number> {
+  if (versionCache && Date.now() - versionCache.at < 15_000) return versionCache.v;
   const r = await db.prepare("SELECT v FROM quiz_meta WHERE k = 'version'").first<{ v: number }>();
-  return r?.v ?? 0;
+  versionCache = { v: r?.v ?? 0, at: Date.now() };
+  return versionCache.v;
 }
 
 /** Nạp toàn bộ dòng (kể cả đã ẩn). Dòng là bất biến nên chỉ cần nạp lại khi có phiên bản mới hơn. */
 async function rowsAtLeast(db: D1Database, version: number): Promise<{ version: number; rows: QuestionRow[] }> {
-  if (cache && cache.version >= version && Date.now() - cache.at < 60_000) return cache;
+  // Dòng câu hỏi là bất biến: đã có đủ đến phiên bản cần thì dùng lại mãi, không cần nạp lại
+  if (cache && cache.version >= version) return cache;
+  versionCache = null;
   const [v, list] = await Promise.all([currentVersion(db), db.prepare("SELECT * FROM questions").all<QuestionRow>()]);
   cache = { version: v, rows: list.results, at: Date.now() };
   return cache;
@@ -35,6 +41,7 @@ async function rowsAtLeast(db: D1Database, version: number): Promise<{ version: 
 
 export function clearQuizCache() {
   cache = null;
+  versionCache = null;
 }
 
 export const rowToQuestion = (r: QuestionRow): Question => ({
